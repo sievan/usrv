@@ -1,5 +1,7 @@
 plugins {
     id 'java'
+    id 'application'
+    id("io.freefair.lombok") version "8.12.1"
 }
 
 group = 'org.example'
@@ -17,3 +19,8 @@ dependencies {
 test {
     useJUnitPlatform()
 }
+
+application {
+    mainClass.set('org.usrv.Main')
+}
+
