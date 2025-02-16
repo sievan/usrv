@@ -7,10 +7,14 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Server {
     public final int port = 80;
     public ServerSocket socket;
+
+    Map<String, Response> cache = new HashMap<>();
 
     Server() {
         try {
@@ -40,13 +44,25 @@ public class Server {
 
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
 
-            Response response = new Response();
-            response.setStatusCode(200);
-            response.setBody("<html>Hej!</html>");
+            Response response;
+
+            if (cache.containsKey("./dist/index.html")) {
+                response = cache.get("./dist/index.html");
+            } else {
+                StaticFile file = new StaticFile("./dist/index.html");
+                String body = file.getFileContents();
+                response = new Response();
+                response.setStatusCode(200);
+                response.setBody(body);
+                cache.put("./dist/index.html", response);
+            }
 
             out.println(response);
 
-            System.out.printf("Sent %s response for %s", response.getStatusCode(), requestLines.getFirst());
+            System.out.println(System.getProperty("user.dir"));
+
+//            System.out.printf("Sent %s response for %s\n", response.getStatusCode(), requestLines.getFirst());
+            System.out.printf("Sent %s response\n", response.getStatusCode());
 
             socket.close();
         } catch (IOException e) {
