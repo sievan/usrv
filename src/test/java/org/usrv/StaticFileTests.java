@@ -3,6 +3,7 @@ package org.usrv;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;
+import java.nio.file.Path;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -43,7 +44,7 @@ class StaticFileTests {
         writer.write(randomizedContent);
         writer.close();
 
-        StaticFile sFile = new StaticFile(file.getPath());
+        StaticFile sFile = new StaticFile(Path.of(file.getPath()));
 
         String fileContents = sFile.getFileContents();
 

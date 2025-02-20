@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.stream.Collectors;
 
 public class StaticFile {
@@ -12,8 +13,8 @@ public class StaticFile {
 
     private String fileContents;
 
-    StaticFile(String path) throws FileNotFoundException {
-        reader = new BufferedReader(new FileReader(path));
+    StaticFile(Path path) throws FileNotFoundException {
+        reader = new BufferedReader(new FileReader(path.toString()));
     }
 
     String getFileContents() throws IOException {
