@@ -3,8 +3,8 @@ package org.usrv;
 import org.junit.jupiter.api.*;
 import org.usrv.Server;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -51,6 +51,9 @@ class ServerTests {
         Thread.sleep(1000);
     }
 
+    /*
+     * Integration tests
+     */
     @Test
     @DisplayName("Server responds to HTTP GET request")
     void serverRespondsToHttpRequest() throws Exception {
@@ -64,6 +67,44 @@ class ServerTests {
 
         assertEquals(200, response.statusCode());
         assertThat(response.body(), containsString(TEST_CONTENT));
+    }
+
+    @Test
+    @DisplayName("Server responds with a 400 status if the request is malformed")
+    void serverRespondsWith400() throws Exception {
+        try (Socket socket = new Socket("localhost", 80);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+            // Send a malformed request
+//            out.println("GET HTTP/1.1\n"
+            out.println("GET");
+            out.println("Host: localhost");
+            out.println("User-Agent: insomnia/10.3.1\n");
+            out.println("Accept: */*\n");  // Missing path and HTTP version
+            out.flush();
+
+            // Read and print the response
+            ArrayList<String> lines = new ArrayList<>();
+            String line;
+
+            while ((line = in.readLine()) != null && !line.isEmpty()) {
+//                System.out.println(line);
+                lines.add(line);
+            }
+
+            assertEquals("HTTP/1.1 400 Bad Request", lines.getFirst());
+
+            // Read response body if any
+//            StringBuilder responseBody = new StringBuilder();
+//            while (in.ready() && (line = in.readLine()) != null) {
+//                responseBody.append(line).append("\n");
+//            }
+//            System.out.println(responseBody);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -91,6 +132,38 @@ class ServerTests {
 
         assertTrue(response.body().contains(TEST_CONTENT));
         assertFalse(response.body().contains("Modified Content"));
+    }
+
+    @Test
+    @DisplayName("Server should respond with the requested file and contents")
+    void serverRespondsWithAnyFile() throws Exception {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "newfile.txt"), "New content");
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/newfile.txt"))
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request,
+                HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(200, response.statusCode());
+        assertThat(response.body(), containsString("New content"));
+    }
+
+    @Test
+    @DisplayName("Server responds with 404 if file isn't found")
+    void serverRespondsWith404() throws Exception {
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/notafile"))
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request,
+                HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(404, response.statusCode());
     }
 
     @Test

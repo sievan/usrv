@@ -6,7 +6,6 @@ import lombok.Setter;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -16,7 +15,9 @@ public class Response {
     private String responseText;
     private static final Map<Integer, String> statuses = Map.of(
             200, "OK",
-            404, "Not found"
+            400, "Bad Request",
+            404, "Not Found",
+            500, "Internal Server Error"
     );
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(
             "EEE, dd MMM yyyy HH:mm:ss z",
@@ -27,11 +28,11 @@ public class Response {
 
     @Getter
     @Setter
-    int StatusCode = 200;
+    private int StatusCode = 200;
 
     @Getter
     @Setter
-    String body;
+    private String body;
 
     private void initializeHeaders() {
         headers.put("Server", "usrv");
@@ -42,27 +43,9 @@ public class Response {
         headers.put("Content-Type", "text/html; charset=UTF-8");
     }
 
-    Response() {
+    Response(int Status) {
+        this.setStatusCode(Status);
         initializeHeaders();
-
-
-        // @formatter:off
-//        responseText = """
-//HTTP/1.1 200 OK
-//Server: Apache
-//Date: Thu, 01 Jan 1998 12:01:00 GMT
-//Connection: Keep-Alive
-//Keep-Alive: timeout=5, max=500
-//Content-Encoding: gzip
-//Content-Type: text/html; charset=UTF-8
-//Last-Modified: Mon, 29 Dec 1997 12:15:00 GMT
-//Transfer-Encoding: chunked
-//
-//<html>
-//Welcome to the <img src=”/logo.gif”> example.re homepage!
-//</html>
-//                """;
-        // @formatter:on
     }
 
     public String toString() {
