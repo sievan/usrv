@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -32,14 +33,15 @@ class ServerTests {
     private static final String TEST_CONTENT = "<html><body>Test Content</body></html>";
     private static final Path defaultDistDirectory = Path.of("./TEST/dist");
 
-    ServerAndThread startServerInNewThread() {
+    ServerAndThread startServerInNewThread(ServerConfig config) {
         Thread thread;
-        Server newServer = new Server(defaultDistDirectory.toString(), 80);
+        Server newServer = new Server(config);
         thread = new Thread(newServer::start);
         thread.start();
 
         return new ServerAndThread(newServer, thread);
     }
+
 
     @BeforeAll
     void setup() throws Exception {
@@ -53,7 +55,8 @@ class ServerTests {
                 .build();
 
         // Start server in separate thread
-        ServerAndThread serverAndThread = startServerInNewThread();
+        ServerConfig config = new ServerConfig(defaultDistDirectory.toString(), 80);
+        ServerAndThread serverAndThread = startServerInNewThread(config);
         server = serverAndThread.server();
         serverThread = serverAndThread.thread();
 
@@ -77,6 +80,28 @@ class ServerTests {
 
         assertEquals(200, response.statusCode());
         assertThat(response.body(), containsString(TEST_CONTENT));
+    }
+
+    @Test
+    @DisplayName("Server can be started with custom config")
+    void serverWithCustomConfig() throws Exception {
+        ServerAndThread customServerAndThread = startServerInNewThread(new ServerConfig(defaultDistDirectory.toString(), 81));
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:81"))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request,
+                    HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(200, response.statusCode());
+            assertThat(response.body(), containsString(TEST_CONTENT));
+        } finally {
+            customServerAndThread.server().stop();
+            customServerAndThread.thread().join(1000);
+        }
     }
 
     @Test
@@ -225,6 +250,7 @@ class ServerTests {
             assertTrue(response.body().contains(TEST_CONTENT));
         }
     }
+
 
     @AfterAll
     void cleanup() throws Exception {

@@ -20,12 +20,12 @@ public class Server {
     private final Map<Path, Response> cache = new HashMap<>();
 
     Server() {
-        this("./dist", 80);
+        this(ServerConfig.getDefaultConfig());
     }
 
-    Server(String distFolder, int port) {
-        this.distFolder = distFolder;
-        this.port = port;
+    Server(ServerConfig config) {
+        this.distFolder = config.distFolder();
+        this.port = config.port();
     }
 
     public void start() {
