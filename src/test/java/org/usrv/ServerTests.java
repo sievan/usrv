@@ -21,6 +21,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.*;
 
+record ServerAndThread(Server server, Thread thread) {
+}
+
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ServerTests {
     private Server server;
@@ -28,6 +31,15 @@ class ServerTests {
     private HttpClient httpClient;
     private static final String TEST_CONTENT = "<html><body>Test Content</body></html>";
     private static final Path defaultDistDirectory = Path.of("./TEST/dist");
+
+    ServerAndThread startServerInNewThread() {
+        Thread thread;
+        Server newServer = new Server(defaultDistDirectory.toString(), 80);
+        thread = new Thread(newServer::start);
+        thread.start();
+
+        return new ServerAndThread(newServer, thread);
+    }
 
     @BeforeAll
     void setup() throws Exception {
@@ -41,10 +53,9 @@ class ServerTests {
                 .build();
 
         // Start server in separate thread
-        serverThread = new Thread(() -> {
-            server = new Server(defaultDistDirectory.toString());
-        });
-        serverThread.start();
+        ServerAndThread serverAndThread = startServerInNewThread();
+        server = serverAndThread.server();
+        serverThread = serverAndThread.thread();
 
         // Wait for server to start
         Thread.sleep(1000);
@@ -76,7 +87,6 @@ class ServerTests {
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
             // Send a malformed request
-//            out.println("GET HTTP/1.1\n"
             out.println("GET");
             out.println("Host: localhost");
             out.println("User-Agent: insomnia/10.3.1\n");

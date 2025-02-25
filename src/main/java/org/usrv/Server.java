@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import java.util.*;
 
 public class Server {
-    public static final int port = 80;
+    public final int port;
 
     @Setter
     private boolean shouldRun = true;
@@ -20,11 +20,15 @@ public class Server {
     private final Map<Path, Response> cache = new HashMap<>();
 
     Server() {
-        this("./dist");
+        this("./dist", 80);
     }
 
-    Server(String distFolder) {
+    Server(String distFolder, int port) {
         this.distFolder = distFolder;
+        this.port = port;
+    }
+
+    public void start() {
         try (ServerSocket socket = new ServerSocket(port)) {
             System.out.printf("Server started at port: %s%n", port);
 
@@ -37,15 +41,9 @@ public class Server {
         }
     }
 
-//    private void verifyRequest(List<String> request) {
-//        String firstLine = request.getFirst();
-//
-//        String httpVerb = Pattern.compile("*")
-//    }
-//
-//    private Path getPathFromRequest(String requestLine) {
-//
-//    }
+    public void stop() {
+        shouldRun = false;
+    }
 
     private void handleRequest(Socket socket) {
         try {
