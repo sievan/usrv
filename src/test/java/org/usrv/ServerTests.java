@@ -1,7 +1,6 @@
 package org.usrv;
 
 import org.junit.jupiter.api.*;
-import org.usrv.Server;
 
 import java.io.*;
 import java.net.Socket;
@@ -89,18 +88,10 @@ class ServerTests {
             String line;
 
             while ((line = in.readLine()) != null && !line.isEmpty()) {
-//                System.out.println(line);
                 lines.add(line);
             }
 
             assertEquals("HTTP/1.1 400 Bad Request", lines.getFirst());
-
-            // Read response body if any
-//            StringBuilder responseBody = new StringBuilder();
-//            while (in.ready() && (line = in.readLine()) != null) {
-//                responseBody.append(line).append("\n");
-//            }
-//            System.out.println(responseBody);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -148,6 +139,38 @@ class ServerTests {
                 HttpResponse.BodyHandlers.ofString());
 
         assertEquals(200, response.statusCode());
+        assertThat(response.body(), containsString("New content"));
+    }
+
+    @Test
+    @DisplayName("Server handles different mime types correctly")
+    void serverRespondsWithRightMimeType() throws Exception {
+        // text/plain
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "newfile.txt"), "New content");
+        HttpRequest txtRequest = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/newfile.txt"))
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(txtRequest,
+                HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(200, response.statusCode());
+        assertEquals("text/plain", response.headers().map().get("Content-Type").getFirst());
+        assertThat(response.body(), containsString("New content"));
+
+        // image/svg+xml
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "newfile.svg"), "New content");
+        HttpRequest svgRequest = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/newfile.svg"))
+                .GET()
+                .build();
+
+        response = httpClient.send(svgRequest,
+                HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(200, response.statusCode());
+        assertEquals("image/svg+xml", response.headers().map().get("Content-Type").getFirst());
         assertThat(response.body(), containsString("New content"));
     }
 
@@ -204,7 +227,6 @@ class ServerTests {
         }
 
         // Clean up test files
-
         try (Stream<Path> stream = Files.walk(Path.of("./TEST"))) {
             stream.sorted(Comparator.reverseOrder())
                     .map(Path::toFile)

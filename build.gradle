@@ -4,6 +4,10 @@ plugins {
     id("io.freefair.lombok") version "8.12.1"
 }
 
+configurations {
+    mockitoAgent
+}
+
 group = 'org.example'
 version = '1.0-SNAPSHOT'
 
@@ -12,13 +16,19 @@ repositories {
 }
 
 dependencies {
+    implementation("org.apache.tika:tika-core:3.1.0")
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.hamcrest:hamcrest:3.0'
+    testImplementation "org.mockito:mockito-core:5.+"
+    mockitoAgent("org.mockito:mockito-core:5.+") {
+        transitive = false
+    }
 }
 
 test {
     useJUnitPlatform()
+    jvmArgs += "-javaagent:${configurations.mockitoAgent.asPath}"
 }
 
 application {

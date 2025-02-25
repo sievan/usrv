@@ -17,7 +17,6 @@ public record ClientRequest(String method, String path, String protocol, Map<Str
             String[] requestLines = request.split("\n");
 
             String requestLine = requestLines[0];
-            String[] requestLineArray = requestLine.split(" ");
 
             String method = requestLine.split(" ")[0];
             String path = requestLine.split(" ")[1];

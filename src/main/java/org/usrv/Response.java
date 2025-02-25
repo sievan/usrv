@@ -24,6 +24,7 @@ public class Response {
             Locale.ENGLISH
     );
 
+    @Getter
     Map<String, String> headers = new HashMap<>();
 
     @Getter
@@ -40,7 +41,6 @@ public class Response {
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
 
         headers.put("Date", now.format(formatter));
-        headers.put("Content-Type", "text/html; charset=UTF-8");
     }
 
     Response(int Status) {
@@ -53,5 +53,9 @@ public class Response {
         String headersString = headers.keySet().stream().map(key -> String.format("%s: %s", key, headers.get(key))).collect(Collectors.joining("\n"));
 
         return String.format("%s\n%s\n\n%s", protocolAndStatus, headersString, this.getBody());
+    }
+
+    public void setHeader(String headerName, String value) {
+        this.headers.put(headerName, value);
     }
 }

@@ -8,7 +8,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.regex.Pattern;
 
 public class Server {
     public static final int port = 80;
@@ -80,6 +79,7 @@ public class Server {
                         StaticFile file = new StaticFile(filePath);
                         String body = file.getFileContents();
                         response = new Response(200);
+                        response.setHeader("Content-Type", file.getMimeType());
                         response.setBody(body);
                         cache.put(filePath, response);
                     } catch (FileNotFoundException e) {
