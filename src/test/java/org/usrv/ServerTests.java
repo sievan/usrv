@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -227,27 +228,34 @@ class ServerTests {
     @Test
     @DisplayName("Server handles multiple concurrent requests")
     void serverHandlesMultipleRequests() throws Exception {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:80"))
-                .GET()
-                .build();
+        // Create HttpClients with requests running in their own threads
+        try (HttpClient multiThreadedHttpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(20))
+                .executor(Executors.newVirtualThreadPerTaskExecutor()) // Use virtual threads for client
+                .build()) {
 
-        // Send 5 concurrent requests
-        var futures = new ArrayList<CompletableFuture<HttpResponse<String>>>();
-        for (int i = 0; i < 5; i++) {
-            futures.add(httpClient.sendAsync(request,
-                    HttpResponse.BodyHandlers.ofString()));
-        }
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:80"))
+                    .GET()
+                    .build();
 
-        // Wait for all requests to complete
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .get(10, TimeUnit.SECONDS);
+            // Send 1000 concurrent requests
+            var futures = new ArrayList<CompletableFuture<HttpResponse<String>>>();
+            for (int i = 0; i < 1000; i++) {
+                futures.add(multiThreadedHttpClient.sendAsync(request,
+                        HttpResponse.BodyHandlers.ofString()));
+            }
 
-        // Verify all responses
-        for (var future : futures) {
-            HttpResponse<String> response = future.get();
-            assertEquals(200, response.statusCode());
-            assertTrue(response.body().contains(TEST_CONTENT));
+            // Wait for all requests to complete
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .get(60, TimeUnit.SECONDS);
+
+            // Verify all responses
+            for (var future : futures) {
+                HttpResponse<String> response = future.get();
+                assertEquals(200, response.statusCode());
+                assertTrue(response.body().contains(TEST_CONTENT));
+            }
         }
     }
 

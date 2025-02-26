@@ -8,6 +8,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 public class Server {
     public final int port;
@@ -17,7 +20,7 @@ public class Server {
 
     private final String distFolder;
 
-    private final Map<Path, Response> cache = new HashMap<>();
+    private final Map<Path, Response> cache = new ConcurrentHashMap<>();
 
     Server() {
         this(ServerConfig.getDefaultConfig());
@@ -29,12 +32,15 @@ public class Server {
     }
 
     public void start() {
-        try (ServerSocket socket = new ServerSocket(port)) {
+        try (ServerSocket socket = new ServerSocket(port, 1000)) {
             System.out.printf("Server started at port: %s%n", port);
 
-            while (shouldRun) {
-                Socket clientSocket = socket.accept();
-                handleRequest(clientSocket);
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                while (shouldRun) {
+                    Socket clientSocket = socket.accept();
+                    clientSocket.setSoTimeout(30000);
+                    executor.submit(() -> handleRequest(clientSocket));
+                }
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -46,39 +52,51 @@ public class Server {
     }
 
     private void handleRequest(Socket socket) {
-        try {
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        Logger logger = new Logger();
 
+        try (
+                socket;
+                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        ) {
             ArrayList<String> requestLines = new ArrayList<>();
             StringBuilder fullRequest = new StringBuilder();
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+
             Response response;
 
             String line;
-            System.out.println();
             while ((line = in.readLine()) != null && !line.isEmpty()) {
                 requestLines.add(line);
-                System.out.println(line);
+                logger.log(line);
                 fullRequest.append(line).append("\n");
             }
-            System.out.println();
+            logger.log("Parsed headers");
 
             Path filePath = null;
 
             try {
+                logger.log("Parse request");
                 ClientRequest request = ClientRequest.parse(fullRequest.toString());
+                logger.log("Create path string");
                 String pathStr = request.path() + (request.path().endsWith("/") ? "index.html" : "");
+                logger.log("Create path obj");
                 filePath = Path.of(distFolder, pathStr);
 
+                logger.log("Check cache");
                 if (cache.containsKey(filePath)) {
                     response = cache.get(filePath);
                 } else {
                     try {
+                        logger.log("Open file");
                         StaticFile file = new StaticFile(filePath);
+                        logger.log("Get file contents");
                         String body = file.getFileContents();
+                        logger.log("Create response");
                         response = new Response(200);
                         response.setHeader("Content-Type", file.getMimeType());
                         response.setBody(body);
+                        response.setHeader("Connection", "close");
+                        logger.log("Added headers");
                         cache.put(filePath, response);
                     } catch (FileNotFoundException e) {
                         response = new Response(404);
@@ -93,14 +111,12 @@ public class Server {
 
             socket.close();
 
-            System.out.print("Served request: ");
-            System.out.println(requestLines.getFirst());
+            logger.log("Done serving " + requestLines.getFirst());
             if (filePath == null) {
-                System.out.printf("Sent %d response\n", response.getStatusCode());
+                logger.logf("Sent %d response\n", response.getStatusCode());
             } else {
-                System.out.printf("Sent %d response for file %s\n", response.getStatusCode(), filePath);
+                logger.logf("Sent %d response for file %s\n", response.getStatusCode(), filePath);
             }
-            System.out.println();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
