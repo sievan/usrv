@@ -3,13 +3,14 @@ package org.usrv;
 import org.usrv.exceptions.InvalidRequestException;
 import org.usrv.exceptions.RequestParsingException;
 
+import java.net.URI;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public record ClientRequest(String method, String path, String protocol, Map<String, String> headers) {
+public record ClientRequest(String method, String path, String protocol, Map<String, String> headers, URI uri) {
     static Set<String> supportedMethods = Set.of("GET");
 
     public static ClientRequest parse(String request) {
@@ -19,7 +20,7 @@ public record ClientRequest(String method, String path, String protocol, Map<Str
             String requestLine = requestLines[0];
 
             String method = requestLine.split(" ")[0];
-            String path = requestLine.split(" ")[1];
+            String uriString = requestLine.split(" ")[1];
             String protocol = requestLine.split(" ")[2];
 
             String[] headerLines = Arrays.copyOfRange(requestLines, 1, requestLines.length);
@@ -30,7 +31,9 @@ public record ClientRequest(String method, String path, String protocol, Map<Str
                             Collectors.toMap(parts -> parts[0], parts -> parts[1])
                     );
 
-            return new ClientRequest(method, path, protocol, headers);
+            URI uri = URI.create(uriString);
+
+            return new ClientRequest(method, uri.getPath(), protocol, headers, uri);
         } catch (Exception e) {
             throw new RequestParsingException("Failed to parse request: ", e);
         }

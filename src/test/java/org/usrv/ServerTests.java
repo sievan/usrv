@@ -13,7 +13,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -56,7 +55,7 @@ class ServerTests {
                 .build();
 
         // Start server in separate thread
-        ServerConfig config = new ServerConfig(defaultDistDirectory.toString(), 80);
+        ServerConfig config = new ServerConfig(defaultDistDirectory.toString(), 80, false);
         ServerAndThread serverAndThread = startServerInNewThread(config);
         server = serverAndThread.server();
         serverThread = serverAndThread.thread();
@@ -86,7 +85,7 @@ class ServerTests {
     @Test
     @DisplayName("Server can be started with custom config")
     void serverWithCustomConfig() throws Exception {
-        ServerAndThread customServerAndThread = startServerInNewThread(new ServerConfig(defaultDistDirectory.toString(), 81));
+        ServerAndThread customServerAndThread = startServerInNewThread(new ServerConfig(defaultDistDirectory.toString(), 81, false));
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
@@ -99,6 +98,45 @@ class ServerTests {
 
             assertEquals(200, response.statusCode());
             assertThat(response.body(), containsString(TEST_CONTENT));
+        } finally {
+            customServerAndThread.server().stop();
+            customServerAndThread.thread().join(1000);
+        }
+    }
+
+
+    @Test
+    @DisplayName("A server can be run with SPA configuration")
+    void serverWithSPAConfig() throws Exception {
+        ServerAndThread customServerAndThread = startServerInNewThread(new ServerConfig(defaultDistDirectory.toString(), 81, true));
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:81"))
+                    .header("Accept", "text/html")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request,
+                    HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(200, response.statusCode());
+            assertThat(response.body(), containsString(TEST_CONTENT));
+
+            Thread.sleep(1000);
+//            assertTrue(customServerAndThread.server().shou);
+
+            HttpRequest requestSubpage = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:81/asubpage"))
+                    .header("Accept", "text/html")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> responseSubpage = httpClient.send(requestSubpage,
+                    HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(200, responseSubpage.statusCode());
+            assertThat(responseSubpage.body(), containsString(TEST_CONTENT));
         } finally {
             customServerAndThread.server().stop();
             customServerAndThread.thread().join(1000);

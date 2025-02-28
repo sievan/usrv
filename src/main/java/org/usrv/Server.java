@@ -10,7 +10,6 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 
 public class Server {
     public final int port;
@@ -20,6 +19,8 @@ public class Server {
 
     private final String distFolder;
 
+    private final ServerConfig serverConfig;
+
     private final Map<Path, Response> cache = new ConcurrentHashMap<>();
 
     Server() {
@@ -27,6 +28,7 @@ public class Server {
     }
 
     Server(ServerConfig config) {
+        this.serverConfig = config;
         this.distFolder = config.distFolder();
         this.port = config.port();
     }
@@ -78,7 +80,32 @@ public class Server {
                 logger.log("Parse request");
                 ClientRequest request = ClientRequest.parse(fullRequest.toString());
                 logger.log("Create path string");
-                String pathStr = request.path() + (request.path().endsWith("/") ? "index.html" : "");
+
+                String pathStr = request.path();
+                String[] splitPath = request.uri().getPath().split("/");
+                boolean containsFileExtension;
+
+                if (splitPath.length == 0) {
+                    containsFileExtension = pathStr.contains(".");
+                } else {
+                    containsFileExtension = splitPath[splitPath.length - 1].contains(".");
+                }
+
+                boolean clientWantsHtml = request.headers().get("Accept") == null || request.headers().get("Accept").contains("text/html");
+
+                if (!containsFileExtension && clientWantsHtml) {
+                    if (serverConfig.serveSingleIndex()) {
+                        // In SPA mode, all HTML requests go to index.html
+                        pathStr = "/index.html";
+                    } else if (request.path().endsWith("/")) {
+                        // In standard mode, append index.html to directory paths
+                        pathStr += "index.html";
+                    } else {
+                        // Optional: handle non-directory paths without extensions as directories
+                        pathStr += "/index.html";
+                    }
+                }
+
                 logger.log("Create path obj");
                 filePath = Path.of(distFolder, pathStr);
 
