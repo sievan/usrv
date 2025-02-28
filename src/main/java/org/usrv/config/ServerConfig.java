@@ -1,7 +1,7 @@
-package org.usrv;
+package org.usrv.config;
 
 public record ServerConfig(String distFolder, int port, boolean serveSingleIndex) {
-    static ServerConfig getDefaultConfig() {
+    public static ServerConfig getDefaultConfig() {
         return new ServerConfig("./dist", 80, false);
     }
 }

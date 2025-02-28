@@ -1,4 +1,4 @@
-package org.usrv;
+package org.usrv.http;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -43,7 +43,7 @@ public class Response {
         headers.put("Date", now.format(formatter));
     }
 
-    Response(int Status) {
+    public Response(int Status) {
         this.setStatusCode(Status);
         initializeHeaders();
     }

@@ -1,4 +1,4 @@
-package org.usrv;
+package org.usrv.http;
 
 import org.usrv.exceptions.InvalidRequestException;
 import org.usrv.exceptions.RequestParsingException;

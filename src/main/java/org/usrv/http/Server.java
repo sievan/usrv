@@ -1,6 +1,9 @@
-package org.usrv;
+package org.usrv.http;
 
 import lombok.Setter;
+import org.usrv.util.Logger;
+import org.usrv.config.ServerConfig;
+import org.usrv.file.StaticFile;
 import org.usrv.exceptions.RequestParsingException;
 
 import java.io.*;
@@ -23,11 +26,11 @@ public class Server {
 
     private final Map<Path, Response> cache = new ConcurrentHashMap<>();
 
-    Server() {
+    public Server() {
         this(ServerConfig.getDefaultConfig());
     }
 
-    Server(ServerConfig config) {
+    public Server(ServerConfig config) {
         this.serverConfig = config;
         this.distFolder = config.distFolder();
         this.port = config.port();

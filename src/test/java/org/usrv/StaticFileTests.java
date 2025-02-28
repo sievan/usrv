@@ -3,6 +3,7 @@ package org.usrv;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.usrv.file.StaticFile;
 
 import java.io.*;
 import java.nio.file.Path;

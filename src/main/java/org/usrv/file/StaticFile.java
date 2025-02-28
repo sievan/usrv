@@ -1,4 +1,4 @@
-package org.usrv;
+package org.usrv.file;
 
 import lombok.Getter;
 import org.apache.tika.config.TikaConfig;
@@ -31,7 +31,7 @@ public class StaticFile {
     @Getter
     private final String mimeType;
 
-    StaticFile(Path path) throws IOException {
+    public StaticFile(Path path) throws IOException {
         this.path = path.toString();
         Metadata metadata = new Metadata();
         metadata.set(TikaCoreProperties.RESOURCE_NAME_KEY, this.path);
@@ -41,7 +41,7 @@ public class StaticFile {
         reader = new BufferedReader(new FileReader(path.toString()));
     }
 
-    String getFileContents() throws IOException {
+    public String getFileContents() throws IOException {
         if (fileContents != null) {
             return fileContents;
         }

@@ -1,4 +1,4 @@
-package org.usrv;
+package org.usrv.util;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
