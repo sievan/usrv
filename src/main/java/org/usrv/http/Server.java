@@ -1,5 +1,6 @@
 package org.usrv.http;
 
+import lombok.Getter;
 import lombok.Setter;
 import org.usrv.util.Logger;
 import org.usrv.config.ServerConfig;
@@ -18,6 +19,7 @@ public class Server {
     public final int port;
 
     @Setter
+    @Getter
     private boolean shouldRun = true;
 
     private final String distFolder;

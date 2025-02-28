@@ -110,11 +110,11 @@ class ServerTests {
     @Test
     @DisplayName("A server can be run with SPA configuration")
     void serverWithSPAConfig() throws Exception {
-        ServerAndThread customServerAndThread = startServerInNewThread(new ServerConfig(defaultDistDirectory.toString(), 81, true));
+        ServerAndThread customServerAndThread = startServerInNewThread(new ServerConfig(defaultDistDirectory.toString(), 82, true));
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:81"))
+                    .uri(URI.create("http://localhost:82"))
                     .header("Accept", "text/html")
                     .GET()
                     .build();
@@ -124,12 +124,11 @@ class ServerTests {
 
             assertEquals(200, response.statusCode());
             assertThat(response.body(), containsString(TEST_CONTENT));
-
-            Thread.sleep(1000);
-//            assertTrue(customServerAndThread.server().shou);
+            
+            assertTrue(customServerAndThread.server().isShouldRun());
 
             HttpRequest requestSubpage = HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:81/asubpage"))
+                    .uri(URI.create("http://localhost:82/asubpage"))
                     .header("Accept", "text/html")
                     .GET()
                     .build();
@@ -177,28 +176,32 @@ class ServerTests {
     @Test
     @DisplayName("Server uses cached response for subsequent requests")
     void serverUsesCachedResponse() throws Exception {
-        // Make first request to populate cache
-        HttpRequest firstRequest = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:80"))
-                .GET()
-                .build();
+        try {
+            // Make first request to populate cache
+            HttpRequest firstRequest = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:80"))
+                    .GET()
+                    .build();
 
-        httpClient.send(firstRequest, HttpResponse.BodyHandlers.ofString());
+            httpClient.send(firstRequest, HttpResponse.BodyHandlers.ofString());
 
-        // Modify the file content
-        Files.writeString(Path.of("./TEST/dist/index.html"), "Modified Content");
+            // Modify the file content
+            Files.writeString(Path.of("./TEST/dist/index.html"), "Modified Content");
 
-        // Make second request - should get cached response
-        HttpRequest secondRequest = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:80"))
-                .GET()
-                .build();
+            // Make second request - should get cached response
+            HttpRequest secondRequest = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:80"))
+                    .GET()
+                    .build();
 
-        HttpResponse<String> response = httpClient.send(secondRequest,
-                HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(secondRequest,
+                    HttpResponse.BodyHandlers.ofString());
 
-        assertTrue(response.body().contains(TEST_CONTENT));
-        assertFalse(response.body().contains("Modified Content"));
+            assertTrue(response.body().contains(TEST_CONTENT));
+            assertFalse(response.body().contains("Modified Content"));
+        } finally {
+            Files.writeString(Path.of("./TEST/dist/index.html"), TEST_CONTENT);
+        }
     }
 
     @Test
