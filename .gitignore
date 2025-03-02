@@ -43,6 +43,7 @@ bin/
 
 ### Dist
 dist
+server.log
 
 ### Test content
 TEST
