@@ -2,7 +2,10 @@ package org.usrv.http;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.usrv.util.Logger;
+import org.slf4j.Logger;
+
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.usrv.config.ServerConfig;
 import org.usrv.file.StaticFile;
 import org.usrv.exceptions.RequestParsingException;
@@ -28,11 +31,14 @@ public class Server {
 
     private final Map<Path, Response> cache = new ConcurrentHashMap<>();
 
+    private final static Logger logger = LoggerFactory.getLogger(Server.class);
+
     public Server() {
         this(ServerConfig.getDefaultConfig());
     }
 
     public Server(ServerConfig config) {
+
         this.serverConfig = config;
         this.distFolder = config.distFolder();
         this.port = config.port();
@@ -54,18 +60,27 @@ public class Server {
         }
     }
 
+    private volatile boolean shutdownRequested = false;
+    
     public void stop() {
         shouldRun = false;
+        shutdownRequested = true;
     }
 
     private void handleRequest(Socket socket) {
-        Logger logger = new Logger();
+        String requestId = UUID.randomUUID().toString();
+        MDC.put("requestId", requestId);
 
         try (
                 socket;
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
         ) {
+            // Check if shutdown was requested while this thread was waiting
+            if (shutdownRequested) {
+                logger.debug("Server shutdown requested, closing connection");
+                return;
+            }
             ArrayList<String> requestLines = new ArrayList<>();
             StringBuilder fullRequest = new StringBuilder();
 
@@ -74,17 +89,17 @@ public class Server {
             String line;
             while ((line = in.readLine()) != null && !line.isEmpty()) {
                 requestLines.add(line);
-                logger.log(line);
+                logger.debug(line);
                 fullRequest.append(line).append("\n");
             }
-            logger.log("Parsed headers");
+            logger.debug("Parsed headers");
 
             Path filePath = null;
 
             try {
-                logger.log("Parse request");
+                logger.debug("Parse request");
                 ClientRequest request = ClientRequest.parse(fullRequest.toString());
-                logger.log("Create path string");
+                logger.debug("Create path string");
 
                 String pathStr = request.path();
                 String[] splitPath = request.uri().getPath().split("/");
@@ -111,24 +126,24 @@ public class Server {
                     }
                 }
 
-                logger.log("Create path obj");
+                logger.debug("Create path obj");
                 filePath = Path.of(distFolder, pathStr);
 
-                logger.log("Check cache");
+                logger.debug("Check cache");
                 if (cache.containsKey(filePath)) {
                     response = cache.get(filePath);
                 } else {
                     try {
-                        logger.log("Open file");
+                        logger.debug("Open file");
                         StaticFile file = new StaticFile(filePath);
-                        logger.log("Get file contents");
+                        logger.debug("Get file contents");
                         String body = file.getFileContents();
-                        logger.log("Create response");
+                        logger.debug("Create response");
                         response = new Response(200);
                         response.setHeader("Content-Type", file.getMimeType());
                         response.setBody(body);
                         response.setHeader("Connection", "close");
-                        logger.log("Added headers");
+                        logger.debug("Added headers");
                         cache.put(filePath, response);
                     } catch (FileNotFoundException e) {
                         response = new Response(404);
@@ -140,17 +155,21 @@ public class Server {
 
             out.println(response);
             out.flush();
-
-            socket.close();
-
-            logger.log("Done serving " + requestLines.getFirst());
+            
+            // Socket is closed automatically by try-with-resources
+            
+            logger.debug("Done serving {}", requestLines.getFirst());
             if (filePath == null) {
-                logger.logf("Sent %d response\n", response.getStatusCode());
+                logger.info("Sent {} response", response.getStatusCode());
             } else {
-                logger.logf("Sent %d response for file %s\n", response.getStatusCode(), filePath);
+                logger.info("Sent {} response for file {}", response.getStatusCode(), filePath);
             }
+        } catch (java.net.SocketTimeoutException e) {
+            logger.warn("Socket timeout occurred while processing request: {}", e.getMessage());
         } catch (IOException e) {
             throw new RuntimeException(e);
+        } finally {
+            MDC.remove("requestId");
         }
     }
 }
