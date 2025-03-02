@@ -111,7 +111,9 @@ public class Server {
                     containsFileExtension = splitPath[splitPath.length - 1].contains(".");
                 }
 
-                boolean clientWantsHtml = request.headers().get("Accept") == null || request.headers().get("Accept").contains("text/html");
+                boolean clientWantsHtml = request.headers().get("Accept") == null ||
+                        request.headers().get("Accept").contains("text/html") ||
+                        request.headers().get("Accept").contains("*/*");
 
                 if (!containsFileExtension && clientWantsHtml) {
                     if (serverConfig.serveSingleIndex()) {
