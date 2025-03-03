@@ -1,8 +1,7 @@
-package org.usrv;
+package org.usrv.http;
 
 import org.junit.jupiter.api.*;
 import org.usrv.config.ServerConfig;
-import org.usrv.http.Server;
 
 import java.io.*;
 import java.net.Socket;
@@ -33,7 +32,7 @@ class ServerTests {
     private Thread serverThread;
     private HttpClient httpClient;
     private static final String TEST_CONTENT = "<html><body>Test Content</body></html>";
-    private static final Path defaultDistDirectory = Path.of("./TEST/dist");
+    private static final Path defaultDistDirectory = Path.of("./TEST_DIST/dist");
 
     ServerAndThread startServerInNewThread(ServerConfig config) {
         Thread thread;
@@ -124,7 +123,7 @@ class ServerTests {
 
             assertEquals(200, response.statusCode());
             assertThat(response.body(), containsString(TEST_CONTENT));
-            
+
             assertTrue(customServerAndThread.server().isShouldRun());
 
             HttpRequest requestSubpage = HttpRequest.newBuilder()
@@ -176,6 +175,7 @@ class ServerTests {
     @Test
     @DisplayName("Server uses cached response for subsequent requests")
     void serverUsesCachedResponse() throws Exception {
+        Path path = Path.of("./TEST_DIST/dist/index.html");
         try {
             // Make first request to populate cache
             HttpRequest firstRequest = HttpRequest.newBuilder()
@@ -186,7 +186,7 @@ class ServerTests {
             httpClient.send(firstRequest, HttpResponse.BodyHandlers.ofString());
 
             // Modify the file content
-            Files.writeString(Path.of("./TEST/dist/index.html"), "Modified Content");
+            Files.writeString(path, "Modified Content");
 
             // Make second request - should get cached response
             HttpRequest secondRequest = HttpRequest.newBuilder()
@@ -200,7 +200,7 @@ class ServerTests {
             assertTrue(response.body().contains(TEST_CONTENT));
             assertFalse(response.body().contains("Modified Content"));
         } finally {
-            Files.writeString(Path.of("./TEST/dist/index.html"), TEST_CONTENT);
+            Files.writeString(path, TEST_CONTENT);
         }
     }
 
@@ -314,7 +314,7 @@ class ServerTests {
         }
 
         // Clean up test files
-        try (Stream<Path> stream = Files.walk(Path.of("./TEST"))) {
+        try (Stream<Path> stream = Files.walk(Path.of("./TEST_DIST"))) {
             stream.sorted(Comparator.reverseOrder())
                     .map(Path::toFile)
                     .forEach(File::delete);

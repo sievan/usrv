@@ -1,9 +1,8 @@
-package org.usrv;
+package org.usrv.file;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.usrv.file.StaticFile;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -42,8 +41,8 @@ class StaticFileTests {
     @DisplayName("You should be able to get the contents of a nested file")
     void testGetNestedFileContents() throws IOException {
 
-        String folderPath = "./TEST";
-        String filePath = "./TEST/";
+        String folderPath = "./TEST_DIST";
+        String filePath = "./TEST_DIST/";
 
         File folder = new File(folderPath);
         folder.mkdir();
