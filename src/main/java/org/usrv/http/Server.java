@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.usrv.config.ServerConfig;
+import org.usrv.file.PathResolver;
 import org.usrv.file.StaticFile;
 import org.usrv.exceptions.RequestParsingException;
 
@@ -79,44 +80,16 @@ public class Server {
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
         ) {
             Response response;
-
             Path filePath = null;
             ClientRequest request;
+            PathResolver pathResolver = new PathResolver(serverConfig);
 
             try {
                 logger.debug("Parse request");
                 request = ClientRequest.parseBuffer(in);
-                logger.debug("Create path string");
 
-                String pathStr = request.path();
-                String[] splitPath = request.uri().getPath().split("/");
-                boolean containsFileExtension;
-
-                if (splitPath.length == 0) {
-                    containsFileExtension = pathStr.contains(".");
-                } else {
-                    containsFileExtension = splitPath[splitPath.length - 1].contains(".");
-                }
-
-                boolean clientWantsHtml = request.headers().get("Accept") == null ||
-                        request.headers().get("Accept").contains("text/html") ||
-                        request.headers().get("Accept").contains("*/*");
-
-                if (!containsFileExtension && clientWantsHtml) {
-                    if (serverConfig.serveSingleIndex()) {
-                        // In SPA mode, all HTML requests go to index.html
-                        pathStr = "/index.html";
-                    } else if (request.path().endsWith("/")) {
-                        // In standard mode, append index.html to directory paths
-                        pathStr += "index.html";
-                    } else {
-                        // Optional: handle non-directory paths without extensions as directories
-                        pathStr += "/index.html";
-                    }
-                }
-
-                logger.debug("Create path obj");
-                filePath = Path.of(distFolder, pathStr);
+                logger.debug("Resolve file path");
+                filePath = pathResolver.resolveRequest(request);
 
                 logger.debug("Check cache");
                 if (cache.containsKey(filePath)) {
