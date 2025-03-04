@@ -51,6 +51,11 @@ public class Server {
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 while (shouldRun) {
                     Socket clientSocket = socket.accept();
+                    // Check if shutdown was requested while this thread was waiting
+                    if (!shouldRun) {
+                        logger.debug("Server shutdown requested, closing connection");
+                        return;
+                    }
                     clientSocket.setSoTimeout(30000);
                     executor.submit(() -> handleRequest(clientSocket));
                 }
@@ -60,11 +65,8 @@ public class Server {
         }
     }
 
-    private volatile boolean shutdownRequested = false;
-    
     public void stop() {
         shouldRun = false;
-        shutdownRequested = true;
     }
 
     private void handleRequest(Socket socket) {
@@ -76,29 +78,14 @@ public class Server {
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
         ) {
-            // Check if shutdown was requested while this thread was waiting
-            if (shutdownRequested) {
-                logger.debug("Server shutdown requested, closing connection");
-                return;
-            }
-            ArrayList<String> requestLines = new ArrayList<>();
-            StringBuilder fullRequest = new StringBuilder();
-
             Response response;
 
-            String line;
-            while ((line = in.readLine()) != null && !line.isEmpty()) {
-                requestLines.add(line);
-                logger.debug(line);
-                fullRequest.append(line).append("\n");
-            }
-            logger.debug("Parsed headers");
-
             Path filePath = null;
+            ClientRequest request;
 
             try {
                 logger.debug("Parse request");
-                ClientRequest request = ClientRequest.parse(fullRequest.toString());
+                request = ClientRequest.parseBuffer(in);
                 logger.debug("Create path string");
 
                 String pathStr = request.path();
@@ -157,10 +144,7 @@ public class Server {
 
             out.println(response);
             out.flush();
-            
-            // Socket is closed automatically by try-with-resources
-            
-            logger.debug("Done serving {}", requestLines.getFirst());
+
             if (filePath == null) {
                 logger.info("Sent {} response", response.getStatusCode());
             } else {
@@ -169,7 +153,9 @@ public class Server {
         } catch (java.net.SocketTimeoutException e) {
             logger.warn("Socket timeout occurred while processing request: {}", e.getMessage());
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            logger.error("I/O error handling request: {}", e.getMessage(), e);
+        } catch (Exception e) {
+            logger.error("Uncaught exception in request handler: {}", e.getMessage(), e);
         } finally {
             MDC.remove("requestId");
         }

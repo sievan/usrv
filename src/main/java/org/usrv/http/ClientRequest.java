@@ -3,15 +3,19 @@ package org.usrv.http;
 import org.usrv.exceptions.InvalidRequestException;
 import org.usrv.exceptions.RequestParsingException;
 
+import java.io.BufferedReader;
+import java.io.IOException;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public record ClientRequest(String method, String path, String protocol, Map<String, String> headers, URI uri) {
     static Set<String> supportedMethods = Set.of("GET");
+
+    private record HttpRequestLine(String method, String uriString, String protocol) {
+    }
+
+    ;
 
     public static ClientRequest parse(String request) {
         try {
@@ -36,6 +40,40 @@ public record ClientRequest(String method, String path, String protocol, Map<Str
             return new ClientRequest(method, uri.getPath(), protocol, headers, uri);
         } catch (Exception e) {
             throw new RequestParsingException("Failed to parse request: ", e);
+        }
+    }
+
+    private static HttpRequestLine parseRequestLine(String line) {
+        try {
+            String[] splitLine = line.split(" ");
+
+            return new HttpRequestLine(splitLine[0], splitLine[1], splitLine[2]);
+        } catch (Exception e) {
+            throw new RequestParsingException("Failed to parse request line: ", e);
+        }
+    }
+
+    public static ClientRequest parseBuffer(BufferedReader reader) {
+        try {
+            String requestLine = reader.readLine();
+
+            HttpRequestLine httpRequestLine = parseRequestLine(requestLine);
+
+            Map<String, String> headers = new HashMap<>();
+
+            String headerLine;
+            while ((headerLine = reader.readLine()) != null && !headerLine.isEmpty()) {
+                String[] parts = headerLine.split(": ");
+                headers.put(parts[0], parts[1]);
+            }
+
+            URI uri = URI.create("/");
+
+            return new ClientRequest(
+                    httpRequestLine.method(), httpRequestLine.uriString(), httpRequestLine.protocol(), headers, uri
+            );
+        } catch (IOException e) {
+            throw new RequestParsingException(e.getMessage());
         }
     }
 

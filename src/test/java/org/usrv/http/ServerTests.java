@@ -165,10 +165,9 @@ class ServerTests {
                 lines.add(line);
             }
 
+
             assertEquals("HTTP/1.1 400 Bad Request", lines.getFirst());
 
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
@@ -297,7 +296,7 @@ class ServerTests {
             for (var future : futures) {
                 HttpResponse<String> response = future.get();
                 assertEquals(200, response.statusCode());
-                assertTrue(response.body().contains(TEST_CONTENT));
+                assertThat(response.body(), containsString(TEST_CONTENT));
             }
         }
     }
