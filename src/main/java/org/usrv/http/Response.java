@@ -33,7 +33,7 @@ public class Response {
 
     @Getter
     @Setter
-    private String body;
+    private byte[] body;
 
     private void initializeHeaders() {
         headers.put("Server", "usrv");
@@ -52,7 +52,17 @@ public class Response {
         String protocolAndStatus = String.format("HTTP/1.1 %s %s", this.getStatusCode(), statuses.get(this.getStatusCode()));
         String headersString = headers.keySet().stream().map(key -> String.format("%s: %s", key, headers.get(key))).collect(Collectors.joining("\n"));
 
-        return String.format("%s\n%s\n\n%s", protocolAndStatus, headersString, this.getBody());
+        return String.format("%s\n%s\n\n%s", protocolAndStatus, headersString, new String(this.getBody()));
+    }
+
+    public byte[] asByteArray() {
+        String protocolAndStatus = String.format("HTTP/1.1 %s %s", this.getStatusCode(), statuses.get(this.getStatusCode()));
+        String headersString = headers.keySet().stream().map(key -> String.format("%s: %s", key, headers.get(key))).collect(Collectors.joining("\n"));
+        byte[] headersByteArray = String.format("%s\n%s\n\n", protocolAndStatus, headersString).getBytes();
+        byte[] responseByteArray = new byte[headersByteArray.length + this.getBody().length];
+        System.arraycopy(headersByteArray, 0, responseByteArray, 0, headersByteArray.length);
+        System.arraycopy(this.getBody(), 0, responseByteArray, headersByteArray.length, this.getBody().length);
+        return responseByteArray;
     }
 
     public void setHeader(String headerName, String value) {

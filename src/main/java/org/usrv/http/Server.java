@@ -10,7 +10,11 @@ import org.usrv.config.ServerConfig;
 import org.usrv.file.StaticFile;
 import org.usrv.exceptions.RequestParsingException;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
@@ -74,7 +78,7 @@ public class Server {
         try (
                 socket;
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                PrintStream  out = new PrintStream (socket.getOutputStream(), true)
         ) {
             // Check if shutdown was requested while this thread was waiting
             if (shutdownRequested) {
@@ -139,13 +143,15 @@ public class Server {
                         logger.debug("Open file");
                         StaticFile file = new StaticFile(filePath);
                         logger.debug("Get file contents");
-                        String body = file.getFileContents();
+                        byte[] body = file.getFileContents();
                         logger.debug("Create response");
                         response = new Response(200);
                         response.setHeader("Content-Type", file.getMimeType());
-                        response.setBody(body);
                         response.setHeader("Connection", "close");
                         logger.debug("Added headers");
+                        response.setBody(body);
+                        logger.debug("Added body");
+
                         cache.put(filePath, response);
                     } catch (FileNotFoundException e) {
                         response = new Response(404);
@@ -155,7 +161,7 @@ public class Server {
                 response = new Response(400);
             }
 
-            out.println(response);
+            out.writeBytes(response.asByteArray());
             out.flush();
             
             // Socket is closed automatically by try-with-resources
