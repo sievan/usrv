@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.mockito.MockedStatic;
 
+import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -22,7 +23,7 @@ class ResponseTests {
     @DisplayName("A 200 response can be created with default values inferred")
     void testBasicHttpResponse() {
         Response response = new Response(200);
-        response.setBody("<html>Hello</html>");
+        response.setBody("<html>Hello</html>".getBytes(StandardCharsets.UTF_8));
 
         String responseText = response.toString();
 

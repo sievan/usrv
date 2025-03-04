@@ -6,6 +6,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.*;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -32,9 +33,9 @@ class StaticFileTests {
 
         StaticFile sFile = new StaticFile(Path.of(file.getPath()));
 
-        String fileContents = sFile.getFileContents();
+        byte[] fileContents = sFile.getFileContents();
 
-        assertEquals(randomizedContent, fileContents);
+        assertArrayEquals(randomizedContent.getBytes(), fileContents);
     }
 
     @Test
@@ -60,9 +61,9 @@ class StaticFileTests {
 
         StaticFile sFile = new StaticFile(Path.of(tmpFile.getPath()));
 
-        String fileContents = sFile.getFileContents();
+        byte[] fileContents = sFile.getFileContents();
 
-        assertEquals(randomizedContent, fileContents);
+        assertArrayEquals(randomizedContent.getBytes(), fileContents);
     }
 
     @Test

@@ -51,8 +51,9 @@ public class Response {
     public String toString() {
         String protocolAndStatus = String.format("HTTP/1.1 %s %s", this.getStatusCode(), statuses.get(this.getStatusCode()));
         String headersString = headers.keySet().stream().map(key -> String.format("%s: %s", key, headers.get(key))).collect(Collectors.joining("\n"));
+        String bodyString = body == null ? "" : new String(body);
 
-        return String.format("%s\n%s\n\n%s", protocolAndStatus, headersString, new String(this.getBody()));
+        return String.format("%s\n%s\n\n%s", protocolAndStatus, headersString, bodyString);
     }
 
     public byte[] asByteArray() {
