@@ -26,8 +26,6 @@ public class Server {
     @Getter
     private boolean shouldRun = true;
 
-    private final String distFolder;
-
     private final ServerConfig serverConfig;
 
     private final Map<Path, Response> cache = new ConcurrentHashMap<>();
@@ -39,9 +37,7 @@ public class Server {
     }
 
     public Server(ServerConfig config) {
-
         this.serverConfig = config;
-        this.distFolder = config.distFolder();
         this.port = config.port();
     }
 
@@ -58,7 +54,13 @@ public class Server {
                         return;
                     }
                     clientSocket.setSoTimeout(30000);
-                    executor.submit(() -> handleRequest(clientSocket));
+                    executor.submit(() -> {
+                        try {
+                            handleRequest(clientSocket);
+                        } catch (Throwable t) {
+                            logger.error("Fatal error in request handler: {}", t.getMessage(), t);
+                        }
+                    });
                 }
             }
         } catch (IOException e) {

@@ -78,15 +78,53 @@ class ClientRequestTest {
     @Test
     @DisplayName("It should throw an error upon parsing a malformed request")
     void testExceptions() {
-        String requestString = "GET HTTP/1.1\n"
-                + "Host: localhost\n"
-                + "User-Agent: insomnia/10.3.1\n"
-                + "Accept: */*\n";
+        String requestString = """
+                GET HTTP/1.1
+                Host: localhost
+                User-Agent: insomnia/10.3.1
+                Accept: */*
+                """;
 
         BufferedReader reader = new BufferedReader(new StringReader(requestString));
 
         Exception exception = assertThrows(RequestParsingException.class, () -> ClientRequest.parseBuffer(reader));
 
         assertEquals("Failed to parse request line: ", exception.getMessage());
+    }
+
+
+    @Test
+    @DisplayName("For get requests, the full body should be consumed addition to headers")
+    void testRequestBody() throws Exception {
+        String requestLine = "GET / HTTP/1.1\n";
+        String[] headerLines = {
+                "Host: localhost",
+                "User-Agent: insomnia/10.3.1",
+                "Accept: */*",
+                "Content-Type: application/json",
+                "Content-Length: 39"
+        };
+        String[] bodyLines = {
+                "\n",
+                "{\n",
+                "  \"key1\": \"value1\",\n",
+                "  \"key2\": \"value2\"\n",
+                "}"
+        };
+        String requestString = requestLine +
+                String.join("\n", headerLines) +
+                String.join("\n", bodyLines);
+
+        BufferedReader reader = new BufferedReader(new StringReader(requestString));
+
+        ClientRequest request = ClientRequest.parseBuffer(reader);
+
+        assertNull(reader.readLine());
+
+        assertEquals(headerLines[0].split(" ")[1], request.headers().get("Host"));
+        assertEquals(headerLines[1].split(" ")[1], request.headers().get("User-Agent"));
+        assertEquals(headerLines[2].split(" ")[1], request.headers().get("Accept"));
+        assertEquals(headerLines[3].split(" ")[1], request.headers().get("Content-Type"));
+        assertEquals(headerLines[4].split(" ")[1], request.headers().get("Content-Length"));
     }
 }

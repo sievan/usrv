@@ -67,12 +67,17 @@ public record ClientRequest(String method, String path, String protocol, Map<Str
                 headers.put(parts[0], parts[1]);
             }
 
+            while (reader.ready() && reader.readLine() != null) {
+                // Read and discard all additional data after headers
+                // since GET and HEAD requests may contain a body, but it's always irrelevant
+            }
+
             URI uri = URI.create("/");
 
             return new ClientRequest(
                     httpRequestLine.method(), httpRequestLine.uriString(), httpRequestLine.protocol(), headers, uri
             );
-        } catch (IOException e) {
+        } catch (IOException | ArrayIndexOutOfBoundsException e) {
             throw new RequestParsingException(e.getMessage());
         }
     }
