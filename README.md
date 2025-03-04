@@ -1,6 +1,7 @@
 # USRV - Micro HTTP Static File Server
 
-A lightweight, high-performance HTTP server for serving static files written in Java. USRV is designed to efficiently serve web assets with configurable settings for different deployment scenarios.
+A lightweight, high-performance HTTP server for serving static files written in Java. USRV is designed to efficiently
+serve web assets with configurable settings for different deployment scenarios.
 
 ## Features
 
@@ -45,12 +46,16 @@ The server starts by default on port 80 and serves files from the `./dist` direc
 ```java
 // Basic usage with default configuration
 Server server = new Server();
-server.start();
+server.
+
+start();
 
 // Custom configuration
 ServerConfig config = new ServerConfig("./public", 8080, true);
 Server server = new Server(config);
-server.start();
+server.
+
+start();
 ```
 
 ## Configuration Options
@@ -64,10 +69,10 @@ The server can be configured with the following options:
 ```java
 // Create custom configuration
 ServerConfig config = new ServerConfig(
-    "./public",  // Static files directory
-    8080,        // Port to listen on
-    true         // Enable SPA mode
-);
+                "./public",  // Static files directory
+                8080,        // Port to listen on
+                true         // Enable SPA mode
+        );
 ```
 
 ## Architecture
@@ -83,6 +88,7 @@ ServerConfig config = new ServerConfig(
 ### Error Handling
 
 Custom exceptions are used for different error scenarios:
+
 - `InvalidRequestException` - For malformed requests
 - `RequestParsingException` - When request parsing fails
 - `UnsupportedMethodException` - For unsupported HTTP methods
@@ -101,4 +107,4 @@ The application uses SLF4J with Logback for logging, with request IDs for tracea
 
 ## License
 
-This project is proprietary and confidential.
+MIT
