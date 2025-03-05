@@ -301,6 +301,22 @@ class ServerTests {
         }
     }
 
+    @Test
+    @DisplayName("Server should respond with headers for HEAD requests")
+    void serverRespondsWithHeadersForFile() throws Exception {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "newfile.txt"), "New content");
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/newfile.txt"))
+                .HEAD()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request,
+                HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(200, response.statusCode());
+        assertEquals("", response.body());
+    }
 
     @AfterAll
     void cleanup() throws Exception {
