@@ -1,14 +1,15 @@
 package org.usrv.http;
 
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.usrv.exceptions.InvalidRequestException;
 import org.usrv.exceptions.RequestParsingException;
-
-import java.io.*;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
+import java.io.BufferedReader;
+import java.io.StringReader;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ClientRequestTest {
@@ -90,6 +91,24 @@ class ClientRequestTest {
         Exception exception = assertThrows(RequestParsingException.class, () -> ClientRequest.parseBuffer(reader));
 
         assertEquals("Failed to parse request line: ", exception.getMessage());
+    }
+
+
+    @Test
+    @DisplayName("It should throw an error upon validating a request that is missing host")
+    void testValidateRequestWithMissingHost() {
+        String requestString = """
+                GET / HTTP/1.1
+                User-Agent: insomnia/10.3.1
+                Accept: */*
+                """;
+
+        BufferedReader reader = new BufferedReader(new StringReader(requestString));
+
+        ClientRequest request = ClientRequest.parseBuffer(reader);
+        Exception exception = assertThrows(InvalidRequestException.class, request::validate);
+
+        assertEquals(InvalidRequestException.MISSING_REQUIRED_HOST_MESSAGE, exception.getMessage());
     }
 
 
