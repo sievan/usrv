@@ -161,7 +161,7 @@ public class Server {
                 response = new Response(400);
             }
 
-            out.writeBytes(response.asByteArray());
+            out.writeBytes(response.toByteArray());
             out.flush();
             
             // Socket is closed automatically by try-with-resources
