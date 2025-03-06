@@ -65,7 +65,7 @@ public class Server {
     }
 
     private volatile boolean shutdownRequested = false;
-    
+
     public void stop() {
         shouldRun = false;
         shutdownRequested = true;
@@ -78,7 +78,7 @@ public class Server {
         try (
                 socket;
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintStream  out = new PrintStream (socket.getOutputStream(), true)
+                PrintStream out = new PrintStream(socket.getOutputStream(), true)
         ) {
             // Check if shutdown was requested while this thread was waiting
             if (shutdownRequested) {
@@ -161,11 +161,12 @@ public class Server {
                 response = new Response(400);
             }
 
-            out.writeBytes(response.toByteArray());
+            out.print(response.getFullResponseHeaders());
+            out.writeBytes(response.getBody());
             out.flush();
-            
+
             // Socket is closed automatically by try-with-resources
-            
+
             logger.debug("Done serving {}", requestLines.getFirst());
             if (filePath == null) {
                 logger.info("Sent {} response", response.getStatusCode());

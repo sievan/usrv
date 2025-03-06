@@ -66,6 +66,13 @@ public class Response {
         return responseByteArray;
     }
 
+    public String getFullResponseHeaders() {
+        String protocolAndStatus = String.format("HTTP/1.1 %s %s", this.getStatusCode(), statuses.get(this.getStatusCode()));
+        String headersString = headers.keySet().stream().map(key -> String.format("%s: %s", key, headers.get(key))).collect(Collectors.joining("\n"));
+
+        return String.format("%s\n%s\n\n", protocolAndStatus, headersString);
+    }
+
     public void setHeader(String headerName, String value) {
         this.headers.put(headerName, value);
     }
