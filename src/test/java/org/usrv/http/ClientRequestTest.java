@@ -127,4 +127,33 @@ class ClientRequestTest {
         assertEquals(headerLines[3].split(" ")[1], request.headers().get("Content-Type"));
         assertEquals(headerLines[4].split(" ")[1], request.headers().get("Content-Length"));
     }
+
+    @Test
+    @DisplayName("For head requests, only headers should be consumed, no body")
+    void testHeadRequest() throws Exception {
+        String requestLine = "GET / HTTP/1.1\n";
+        String[] headerLines = {
+                "Host: localhost",
+                "User-Agent: insomnia/10.3.1",
+                "Accept: */*",
+                "Content-Type: application/json",
+                "Content-Length: 39"
+                
+        };
+
+        String requestString = requestLine +
+                String.join("\n", headerLines);
+
+        BufferedReader reader = new BufferedReader(new StringReader(requestString));
+
+        ClientRequest request = ClientRequest.parseBuffer(reader);
+
+        assertNull(reader.readLine());
+
+        assertEquals(headerLines[0].split(" ")[1], request.headers().get("Host"));
+        assertEquals(headerLines[1].split(" ")[1], request.headers().get("User-Agent"));
+        assertEquals(headerLines[2].split(" ")[1], request.headers().get("Accept"));
+        assertEquals(headerLines[3].split(" ")[1], request.headers().get("Content-Type"));
+        assertEquals(headerLines[4].split(" ")[1], request.headers().get("Content-Length"));
+    }
 }

@@ -10,7 +10,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public record ClientRequest(String method, String path, String protocol, Map<String, String> headers, URI uri) {
-    static Set<String> supportedMethods = Set.of("GET");
+    static Set<String> supportedMethods = Set.of("GET", "HEAD");
 
     private record HttpRequestLine(String method, String uriString, String protocol) {
     }
