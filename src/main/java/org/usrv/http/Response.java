@@ -52,7 +52,8 @@ public class Response {
         String protocolAndStatus = String.format("HTTP/1.1 %s %s", this.getStatusCode(), statuses.get(this.getStatusCode()));
         String headersString = headers.keySet().stream().map(key -> String.format("%s: %s", key, headers.get(key))).collect(Collectors.joining("\n"));
 
-        return String.format("%s\n%s\n\n%s", protocolAndStatus, headersString, this.getBody());
+        return String.format("%s\n%s\n\n%s", protocolAndStatus, headersString,
+                this.getBody() != null ? this.getBody() : "");
     }
 
     public void setHeader(String headerName, String value) {
