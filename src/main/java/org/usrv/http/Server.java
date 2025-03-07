@@ -106,6 +106,7 @@ public class Server {
                         response = new Response(200);
                         response.setHeader("Content-Type", file.getMimeType());
                         response.setBody(body);
+                        response.setHeader("Content-Length", String.valueOf(body.length()));
                         response.setHeader("Connection", "close");
                         logger.debug("Added headers");
                         cache.put(filePath, response);
@@ -116,7 +117,9 @@ public class Server {
             } catch (RequestParsingException e) {
                 response = new Response(400);
             }
-
+            if (!response.headers.containsKey("Content-Length")) {
+                response.setHeader("Content-Length", "0");
+            }
             out.println(response);
             out.flush();
 
