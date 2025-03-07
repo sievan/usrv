@@ -178,13 +178,11 @@ class ServerTests {
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
-            // Send a malformed request
             out.println("GET / HTTP/1.1");
             out.println("User-Agent: insomnia/10.3.1\n");
-            out.println("Accept: */*\n");  // Missing path and HTTP version
+            out.println("Accept: */*\n");
             out.flush();
 
-            // Read and print the response
             ArrayList<String> lines = new ArrayList<>();
             String line;
 
