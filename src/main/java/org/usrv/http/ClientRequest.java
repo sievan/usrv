@@ -91,6 +91,8 @@ public record ClientRequest(String method, String path, String protocol, Map<Str
     }
 
     private boolean isHostRequiredForProtocol(){
-        return Objects.equals(this.protocol, "HTTP/1.1");
+        Set<String> protocolsWithRequiredHost = Set.of("HTTP/1.1", "HTTP/2", "HTTP/3");
+
+        return protocolsWithRequiredHost.contains(this.protocol);
     }
 }
