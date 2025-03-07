@@ -15,8 +15,6 @@ public record ClientRequest(String method, String path, String protocol, Map<Str
     private record HttpRequestLine(String method, String uriString, String protocol) {
     }
 
-    ;
-
     public static ClientRequest parse(String request) {
         try {
             String[] requestLines = request.split("\n");
@@ -87,6 +85,14 @@ public record ClientRequest(String method, String path, String protocol, Map<Str
             throw new InvalidRequestException("Unsupported method: " + this.method);
         } else if (!Objects.equals(this.protocol, "HTTP/1.1")) {
             throw new InvalidRequestException("Unsupported protocol: " + this.protocol);
+        } else if(this.isHostRequiredForProtocol() && !this.headers.containsKey("Host")) {
+            throw new InvalidRequestException(InvalidRequestException.MISSING_REQUIRED_HOST_MESSAGE);
         }
+    }
+
+    private boolean isHostRequiredForProtocol(){
+        Set<String> protocolsWithRequiredHost = Set.of("HTTP/1.1", "HTTP/2", "HTTP/3");
+
+        return protocolsWithRequiredHost.contains(this.protocol);
     }
 }
