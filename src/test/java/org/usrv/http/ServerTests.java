@@ -11,6 +11,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -105,6 +108,36 @@ class ServerTests {
         }
     }
 
+    @Test
+    @DisplayName("Server can respond with image")
+    public void testImageEndpoint() throws IOException, InterruptedException, NoSuchAlgorithmException {
+        Path imagePath = Paths.get("src", "test", "resources", "testImage.jpg");
+        Files.copy(imagePath, defaultDistDirectory.resolve("testImage.jpg"));
+
+        // Build request
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/testImage.jpg"))
+                .GET()
+                .build();
+
+        // Get response bytes
+        HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        byte[] responseBytes = response.body();
+
+        // Calculate hash of response
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] responseHash = digest.digest(responseBytes);
+
+        // Reset digest for reuse
+        digest.reset();
+
+        // Calculate hash of expected file
+        byte[] expectedFileBytes = Files.readAllBytes(imagePath);
+        byte[] expectedHash = digest.digest(expectedFileBytes);
+
+        // Compare hashes
+        assertArrayEquals(expectedHash, responseHash, "Image file hash doesn't match expected hash");
+    }
 
     @Test
     @DisplayName("A server can be run with SPA configuration")

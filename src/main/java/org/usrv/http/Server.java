@@ -12,7 +12,11 @@ import org.usrv.file.PathResolver;
 import org.usrv.file.StaticFile;
 import org.usrv.exceptions.RequestParsingException;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
@@ -80,7 +84,7 @@ public class Server {
         try (
                 socket;
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
+                PrintStream out = new PrintStream(socket.getOutputStream(), true)
         ) {
             Response response;
             Path filePath = null;
@@ -107,7 +111,7 @@ public class Server {
                         logger.debug("Open file");
                         StaticFile file = new StaticFile(filePath);
                         logger.debug("Get file contents");
-                        String body = file.getFileContents();
+                        byte[] body = file.getFileContents();
                         logger.debug("Create response");
                         response = new Response(200);
                         response.setHeader("Content-Type", file.getMimeType());
@@ -116,6 +120,7 @@ public class Server {
 
                         if(!isHeadMethod) {
                             response.setBody(body);
+                            logger.debug("Added body");
                             cache.put(filePath, response);
                         }
                     } catch (FileNotFoundException e) {
@@ -126,7 +131,8 @@ public class Server {
                 response = new Response(400);
             }
 
-            out.println(response);
+            out.print(response.getFullResponseHeaders());
+            out.writeBytes(response.getBody());
             out.flush();
 
             if (filePath == null) {
