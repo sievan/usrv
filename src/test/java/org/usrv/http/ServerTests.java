@@ -9,6 +9,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpHeaders;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -334,13 +335,13 @@ class ServerTests {
     @Test
     @DisplayName("Server should respond with 'Connection: keep-alive' in the header")
     void testKeepAliveHeader() throws IOException {
-        Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "Keep-alive test");
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "timeout.txt"), "Timeout test");
 
         try (Socket socket = new Socket("localhost", 80);
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
-            out.print("GET /file.txt HTTP/1.1\r\n");
+            out.print("GET /timeout.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
             out.print("User-Agent: insomnia/10.3.1\r\n");
             out.print("Connection: keep-alive\r\n");
@@ -351,7 +352,7 @@ class ServerTests {
             assertNotNull(statusLine, "Status line should not be null");
             assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
 
-           
+
             boolean keepAliveFound = false;
             String line;
             while ((line = in.readLine()) != null && !line.isEmpty()) {
@@ -366,38 +367,25 @@ class ServerTests {
 
     @Test
     @DisplayName("Server should respond with 'Connection: close' in the header")
-    void testCloseConnectionHeader() throws IOException {
+    void testCloseConnectionHeader() throws IOException, InterruptedException {
         Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "Keep-alive test");
 
-        try (Socket socket = new Socket("localhost", 80);
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/file.txt"))
+                .build();
 
-            out.print("GET /file.txt HTTP/1.1\r\n");
-            out.print("Host: localhost\r\n");
-            out.print("User-Agent: insomnia/10.3.1\r\n");
-            out.print("Connection: close\r\n");
-            out.print("\r\n");
-            out.flush();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-            String statusLine = in.readLine();
-            assertNotNull(statusLine, "Status line should not be null");
-            assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+        assertNotNull(response.statusCode(), "Status code should not be null");
+        assertTrue(response.statusCode() == 200, "Expected HTTP 200 response");
 
-            String line;
-            boolean closeConnectionFound = false;
-            while ((line = in.readLine()) != null && !line.isEmpty()) {
-                if (line.equalsIgnoreCase("Connection: close")) {
-                    closeConnectionFound = true;
-                }
-            }
-
-            assertTrue(closeConnectionFound, "Server did not return 'Connection: close'");
-        }
+        HttpHeaders headers = response.headers();
+        String connectionHeader = headers.firstValue("Connection").orElse("");
+        assertEquals("close", connectionHeader, "Server did not return 'Connection: close'");
     }
 
     @Test
-    @DisplayName("Server should keep connection alive for multiple requests")
+    @DisplayName("Server should keep connection alive for multiple requests if the client requests it")
     void testKeepAliveConnection() throws IOException {
         Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "File test");
 
