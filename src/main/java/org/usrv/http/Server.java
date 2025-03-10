@@ -80,7 +80,7 @@ public class Server {
         try (
             socket;
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
         ) {
             boolean keepAlive = true;
 
@@ -91,46 +91,41 @@ public class Server {
                 PathResolver pathResolver = new PathResolver(serverConfig);
 
                 try {
-                    if (in.ready()) {
-                        logger.debug("Parse request");
-                        request = ClientRequest.parseBuffer(in);
+                    logger.debug("Parse request");
+                    request = ClientRequest.parseBuffer(in);
 
-                        logger.debug("Validate request");
-                        request.validate();
+                    logger.debug("Validate request");
+                    request.validate();
 
-                        keepAlive = request.isKeepAlive();
+                    keepAlive = request.isKeepAlive();
 
-                        logger.debug("Resolve file path");
-                        filePath = pathResolver.resolveRequest(request);
+                    logger.debug("Resolve file path");
+                    filePath = pathResolver.resolveRequest(request);
 
-                        boolean isHeadMethod = request.method().equals("HEAD");
+                    boolean isHeadMethod = request.method().equals("HEAD");
 
-                        logger.debug("Check cache");
-                        if (cache.containsKey(filePath)) {
-                            response = cache.get(filePath);
-                            response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
-                        } else {
-                            try {
-                                logger.debug("Open file");
-                                StaticFile file = new StaticFile(filePath);
-                                logger.debug("Get file contents");
-                                String body = file.getFileContents();
-                                logger.debug("Create response");
-                                response = new Response(200);
-                                response.setHeader("Content-Type", file.getMimeType());
-                                response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
-
-                                if (!isHeadMethod) {
-                                    response.setBody(body);
-                                    cache.put(filePath, response);
-                                }
-                                logger.debug("Response headers: {}", response.getHeaders());
-                            } catch (FileNotFoundException e) {
-                                response = new Response(404);
-                            }
-                        }
+                    logger.debug("Check cache");
+                    if (cache.containsKey(filePath)) {
+                        response = cache.get(filePath);
+                        response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
                     } else {
-                        continue;
+                        try {
+                            logger.debug("Open file");
+                            StaticFile file = new StaticFile(filePath);
+                            logger.debug("Get file contents");
+                            String body = file.getFileContents();
+                            logger.debug("Create response");
+                            response = new Response(200);
+                            response.setHeader("Content-Type", file.getMimeType());
+                            response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
+
+                            if (!isHeadMethod) {
+                                response.setBody(body);
+                                cache.put(filePath, response);
+                            }
+                        } catch (FileNotFoundException e) {
+                            response = new Response(404);
+                        }
                     }
                 } catch (RequestParsingException | InvalidRequestException e) {
                     logger.warn("Error processing request: {}", e.getMessage());
@@ -165,5 +160,4 @@ public class Server {
             MDC.remove("requestId");
         }
     }
-
 }
