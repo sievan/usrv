@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.usrv.config.ServerConfig;
+import org.usrv.exceptions.InvalidRequestException;
+import org.usrv.file.PathResolver;
 import org.usrv.file.StaticFile;
 import org.usrv.exceptions.RequestParsingException;
 
@@ -29,8 +31,6 @@ public class Server {
     @Getter
     private boolean shouldRun = true;
 
-    private final String distFolder;
-
     private final ServerConfig serverConfig;
 
     private final Map<Path, Response> cache = new ConcurrentHashMap<>();
@@ -42,9 +42,7 @@ public class Server {
     }
 
     public Server(ServerConfig config) {
-
         this.serverConfig = config;
-        this.distFolder = config.distFolder();
         this.port = config.port();
     }
 
@@ -55,8 +53,19 @@ public class Server {
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 while (shouldRun) {
                     Socket clientSocket = socket.accept();
+                    // Check if shutdown was requested while this thread was waiting
+                    if (!shouldRun) {
+                        logger.debug("Server shutdown requested, closing connection");
+                        return;
+                    }
                     clientSocket.setSoTimeout(30000);
-                    executor.submit(() -> handleRequest(clientSocket));
+                    executor.submit(() -> {
+                        try {
+                            handleRequest(clientSocket);
+                        } catch (Throwable t) {
+                            logger.error("Fatal error in request handler: {}", t.getMessage(), t);
+                        }
+                    });
                 }
             }
         } catch (IOException e) {
@@ -64,11 +73,8 @@ public class Server {
         }
     }
 
-    private volatile boolean shutdownRequested = false;
-
     public void stop() {
         shouldRun = false;
-        shutdownRequested = true;
     }
 
     private void handleRequest(Socket socket) {
@@ -80,60 +86,22 @@ public class Server {
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 PrintStream out = new PrintStream(socket.getOutputStream(), true)
         ) {
-            // Check if shutdown was requested while this thread was waiting
-            if (shutdownRequested) {
-                logger.debug("Server shutdown requested, closing connection");
-                return;
-            }
-            ArrayList<String> requestLines = new ArrayList<>();
-            StringBuilder fullRequest = new StringBuilder();
-
             Response response;
-
-            String line;
-            while ((line = in.readLine()) != null && !line.isEmpty()) {
-                requestLines.add(line);
-                logger.debug(line);
-                fullRequest.append(line).append("\n");
-            }
-            logger.debug("Parsed headers");
-
             Path filePath = null;
+            ClientRequest request;
+            PathResolver pathResolver = new PathResolver(serverConfig);
 
             try {
                 logger.debug("Parse request");
-                ClientRequest request = ClientRequest.parse(fullRequest.toString());
-                logger.debug("Create path string");
+                request = ClientRequest.parseBuffer(in);
 
-                String pathStr = request.path();
-                String[] splitPath = request.uri().getPath().split("/");
-                boolean containsFileExtension;
+                logger.debug("Validate request");
+                request.validate();
 
-                if (splitPath.length == 0) {
-                    containsFileExtension = pathStr.contains(".");
-                } else {
-                    containsFileExtension = splitPath[splitPath.length - 1].contains(".");
-                }
+                logger.debug("Resolve file path");
+                filePath = pathResolver.resolveRequest(request);
 
-                boolean clientWantsHtml = request.headers().get("Accept") == null ||
-                        request.headers().get("Accept").contains("text/html") ||
-                        request.headers().get("Accept").contains("*/*");
-
-                if (!containsFileExtension && clientWantsHtml) {
-                    if (serverConfig.serveSingleIndex()) {
-                        // In SPA mode, all HTML requests go to index.html
-                        pathStr = "/index.html";
-                    } else if (request.path().endsWith("/")) {
-                        // In standard mode, append index.html to directory paths
-                        pathStr += "index.html";
-                    } else {
-                        // Optional: handle non-directory paths without extensions as directories
-                        pathStr += "/index.html";
-                    }
-                }
-
-                logger.debug("Create path obj");
-                filePath = Path.of(distFolder, pathStr);
+                boolean isHeadMethod = request.method().equals("HEAD");
 
                 logger.debug("Check cache");
                 if (cache.containsKey(filePath)) {
@@ -149,15 +117,17 @@ public class Server {
                         response.setHeader("Content-Type", file.getMimeType());
                         response.setHeader("Connection", "close");
                         logger.debug("Added headers");
-                        response.setBody(body);
-                        logger.debug("Added body");
 
-                        cache.put(filePath, response);
+                        if(!isHeadMethod) {
+                            response.setBody(body);
+                            logger.debug("Added body");
+                            cache.put(filePath, response);
+                        }
                     } catch (FileNotFoundException e) {
                         response = new Response(404);
                     }
                 }
-            } catch (RequestParsingException e) {
+            } catch (RequestParsingException | InvalidRequestException e) {
                 response = new Response(400);
             }
 
@@ -165,9 +135,6 @@ public class Server {
             out.writeBytes(response.getBody());
             out.flush();
 
-            // Socket is closed automatically by try-with-resources
-
-            logger.debug("Done serving {}", requestLines.getFirst());
             if (filePath == null) {
                 logger.info("Sent {} response", response.getStatusCode());
             } else {
@@ -176,7 +143,9 @@ public class Server {
         } catch (java.net.SocketTimeoutException e) {
             logger.warn("Socket timeout occurred while processing request: {}", e.getMessage());
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            logger.error("I/O error handling request: {}", e.getMessage(), e);
+        } catch (Exception e) {
+            logger.error("Uncaught exception in request handler: {}", e.getMessage(), e);
         } finally {
             MDC.remove("requestId");
         }
