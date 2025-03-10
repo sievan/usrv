@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import java.net.SocketException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -327,6 +328,153 @@ class ServerTests {
 
             // Check if body is returned
             assertEquals(0, socket.getInputStream().available(), "HEAD response should not contain a body");
+        }
+    }
+
+    @Test
+    @DisplayName("Server should respond with 'Connection: keep-alive' in the header")
+    void testKeepAliveHeader() throws IOException {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "timeout.txt"), "Timeout test");
+
+        try (Socket socket = new Socket("localhost", 80);
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+            out.print("GET /timeout.txt HTTP/1.1\r\n");
+            out.print("Host: localhost\r\n");
+            out.print("User-Agent: insomnia/10.3.1\r\n");
+            out.print("Connection: keep-alive\r\n");
+            out.print("\r\n");
+            out.flush();
+
+            String statusLine = in.readLine();
+            assertNotNull(statusLine, "Status line should not be null");
+            assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+
+           
+            boolean keepAliveFound = false;
+            String line;
+            while ((line = in.readLine()) != null && !line.isEmpty()) {
+                if (line.equalsIgnoreCase("Connection: keep-alive")) {
+                    keepAliveFound = true;
+                }
+            }
+
+            assertTrue(keepAliveFound, "Server did not return 'Connection: keep-alive'");
+        }
+    }
+
+    @Test
+    @DisplayName("Server should respond with 'Connection: close' in the header")
+    void testCloseConnectionHeader() throws IOException {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "timeout.txt"), "Timeout test");
+
+        try (Socket socket = new Socket("localhost", 80);
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+            out.print("GET /timeout.txt HTTP/1.1\r\n");
+            out.print("Host: localhost\r\n");
+            out.print("User-Agent: insomnia/10.3.1\r\n");
+            out.print("Connection: close\r\n");
+            out.print("\r\n");
+            out.flush();
+
+            String statusLine = in.readLine();
+            assertNotNull(statusLine, "Status line should not be null");
+            assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+
+            String line;
+            boolean closeConnectionFound = false;
+            while ((line = in.readLine()) != null && !line.isEmpty()) {
+                if (line.equalsIgnoreCase("Connection: close")) {
+                    closeConnectionFound = true;
+                }
+            }
+
+            assertTrue(closeConnectionFound, "Server did not return 'Connection: close'");
+        }
+    }
+
+    @Test
+    @DisplayName("Server should keep connection alive for multiple requests")
+    void testKeepAliveConnection() throws IOException {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "File test");
+
+        try (Socket socket = new Socket("localhost", 80);
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+        
+            out.print("HEAD /timeout.txt HTTP/1.1\r\n");
+            out.print("Host: localhost\r\n");
+            out.print("User-Agent: insomnia/10.3.1\r\n");
+            out.print("Connection: keep-alive\r\n");
+            out.print("\r\n");
+            out.flush();
+
+            String statusLine = in.readLine();
+            assertNotNull(statusLine, "Status line should not be null");
+            assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+
+            String line;
+            while ((line = in.readLine()) != null && !line.isEmpty()) {
+                // Ignore headers
+            }
+
+            String body = in.readLine();
+
+            out.print("HEAD /timeout.txt HTTP/1.1\r\n");
+            out.print("Host: localhost\r\n");
+            out.print("User-Agent: insomnia/10.3.1\r\n");
+            out.print("Connection: close\r\n");
+            out.print("\r\n");
+            out.flush();
+
+            String statusLine2 = in.readLine();
+            assertNotNull(statusLine2, "Status line should not be null");
+            assertTrue(statusLine2.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+        }
+    }
+
+    @Test
+    @DisplayName("Server should close connection after receiving 'Connection: close'")
+    void testCloseConnection() throws Exception {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "File test");
+
+        try (Socket socket = new Socket("localhost", 80);
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+            out.print("HEAD /timeout.txt HTTP/1.1\r\n");
+            out.print("Host: localhost\r\n");
+            out.print("User-Agent: insomnia/10.3.1\r\n");
+            out.print("Connection: close\r\n");
+            out.print("\r\n");
+            out.flush();
+
+            String statusLine = in.readLine();
+            assertNotNull(statusLine, "Status line should not be null");
+            assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+
+            String line;
+            while ((line = in.readLine()) != null && !line.isEmpty()) {
+                // Ignore headers
+            }
+
+            String body = in.readLine();
+
+            out.print("HEAD /timeout.txt HTTP/1.1\r\n");
+            out.print("Host: localhost\r\n");
+            out.print("User-Agent: insomnia/10.3.1\r\n");
+            out.print("Connection: close\r\n");
+            out.print("\r\n");
+            out.flush();
+
+            SocketException thrown = assertThrows(SocketException.class, () -> {
+                String statusLine2 = in.readLine();
+            });
+
+            assertEquals(thrown.getMessage(), "An established connection was aborted by the software in your host machine");
         }
     }
 
