@@ -53,13 +53,12 @@ public class Response {
     public String toString() {
         String protocolAndStatus = String.format("HTTP/1.1 %s %s", this.getStatusCode(), statuses.get(this.getStatusCode()));
         String headersString = headers.keySet().stream().map(key -> String.format("%s: %s", key, headers.get(key))).collect(Collectors.joining("\n"));
-        String bodyString = "";
-        if (body != null && headers.containsKey("Content-Type")) {
+        String bodyString = body == null ? "" : new String(body, StandardCharsets.UTF_8);
+
+        if (headers.containsKey("Content-Type")) {
             String contentType = headers.get("Content-Type");
             if (contentType.contains("image") || contentType.contains("application")) {
                 bodyString = Base64.getEncoder().encodeToString(body);
-            } else {
-                bodyString = new String(body, StandardCharsets.UTF_8);
             }
         }
 
