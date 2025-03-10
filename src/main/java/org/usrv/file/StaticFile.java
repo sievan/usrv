@@ -5,6 +5,8 @@ import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.metadata.TikaCoreProperties;
+
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,7 +37,10 @@ public class StaticFile {
     }
 
     public byte[] getFileContents() throws IOException {
-
-        return Files.readAllBytes(this.path);
+        try {
+            return Files.readAllBytes(this.path);
+        } catch (IOException e) {
+            throw new FileNotFoundException(e.getMessage());
+        }
     }
 }

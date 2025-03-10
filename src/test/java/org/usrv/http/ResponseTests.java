@@ -5,9 +5,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.mockito.MockedStatic;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Locale;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -29,6 +38,29 @@ class ResponseTests {
 
         assertTrue(responseText.contains("HTTP/1.1 200 OK"));
         assertTrue(responseText.contains("<html>Hello</html>"));
+    }
+
+    @Test
+    @DisplayName("A 200 response can be created with image request")
+    void testImageHttpResponse() throws IOException, NoSuchAlgorithmException {
+        Response response = new Response(200);
+        response.setHeader("Content-Type", "image/jpeg");
+        Path imagePath = Paths.get("src", "test", "resources", "testImage.jpg");
+
+        byte[] image = Files.readAllBytes(imagePath);
+        response.setBody(image);
+        String responseText = response.toString();
+        String responseBody = responseText.splitWithDelimiters("\n\n", 2)[2];
+
+
+        byte[] responseBytes = Base64.getDecoder().decode(responseBody);
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] responseHash = digest.digest(responseBytes);
+        digest.reset();
+        byte[] expectedHash = digest.digest(image);
+
+        assertTrue(responseText.contains("HTTP/1.1 200 OK"));
+        assertArrayEquals(expectedHash, responseHash, "Image file hash doesn't match expected hash");
     }
 
     @Test
