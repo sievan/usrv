@@ -334,13 +334,13 @@ class ServerTests {
     @Test
     @DisplayName("Server should respond with 'Connection: keep-alive' in the header")
     void testKeepAliveHeader() throws IOException {
-        Files.writeString(Path.of(defaultDistDirectory.toString(), "timeout.txt"), "Timeout test");
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "Keep-alive test");
 
         try (Socket socket = new Socket("localhost", 80);
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
-            out.print("GET /timeout.txt HTTP/1.1\r\n");
+            out.print("GET /file.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
             out.print("User-Agent: insomnia/10.3.1\r\n");
             out.print("Connection: keep-alive\r\n");
@@ -367,13 +367,13 @@ class ServerTests {
     @Test
     @DisplayName("Server should respond with 'Connection: close' in the header")
     void testCloseConnectionHeader() throws IOException {
-        Files.writeString(Path.of(defaultDistDirectory.toString(), "timeout.txt"), "Timeout test");
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "Keep-alive test");
 
         try (Socket socket = new Socket("localhost", 80);
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
-            out.print("GET /timeout.txt HTTP/1.1\r\n");
+            out.print("GET /file.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
             out.print("User-Agent: insomnia/10.3.1\r\n");
             out.print("Connection: close\r\n");
@@ -405,7 +405,7 @@ class ServerTests {
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
         
-            out.print("HEAD /timeout.txt HTTP/1.1\r\n");
+            out.print("HEAD /file.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
             out.print("User-Agent: insomnia/10.3.1\r\n");
             out.print("Connection: keep-alive\r\n");
@@ -423,7 +423,7 @@ class ServerTests {
 
             String body = in.readLine();
 
-            out.print("HEAD /timeout.txt HTTP/1.1\r\n");
+            out.print("HEAD /file.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
             out.print("User-Agent: insomnia/10.3.1\r\n");
             out.print("Connection: close\r\n");
@@ -445,7 +445,7 @@ class ServerTests {
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
-            out.print("HEAD /timeout.txt HTTP/1.1\r\n");
+            out.print("HEAD /file.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
             out.print("User-Agent: insomnia/10.3.1\r\n");
             out.print("Connection: close\r\n");
@@ -463,7 +463,7 @@ class ServerTests {
 
             String body = in.readLine();
 
-            out.print("HEAD /timeout.txt HTTP/1.1\r\n");
+            out.print("HEAD /file.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
             out.print("User-Agent: insomnia/10.3.1\r\n");
             out.print("Connection: close\r\n");

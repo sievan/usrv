@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.usrv.config.ServerConfig;
+import org.usrv.exceptions.InvalidRequestException;
 import org.usrv.file.PathResolver;
 import org.usrv.file.StaticFile;
 import org.usrv.exceptions.RequestParsingException;
@@ -81,8 +82,6 @@ private void handleRequest(Socket socket) {
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
     ) {
-        long lastActivityTime = System.currentTimeMillis();
-
         boolean keepAlive = true;
 
         while (keepAlive) {
@@ -95,6 +94,9 @@ private void handleRequest(Socket socket) {
                 if (in.ready()) {
                     logger.debug("Parse request");
                     request = ClientRequest.parseBuffer(in);
+
+                    logger.debug("Validate request");
+                    request.validate();
 
                     keepAlive = request.isKeepAlive();
 
@@ -130,8 +132,8 @@ private void handleRequest(Socket socket) {
                 } else {
                     continue;
                 }
-            } catch (RequestParsingException e) {
-                logger.warn("Error parsing request: {}", e.getMessage());
+            } catch (RequestParsingException | InvalidRequestException e) {
+                logger.warn("Error processing request: {}", e.getMessage());
                 response = new Response(400);
                 keepAlive = false;
             } catch (java.net.SocketTimeoutException e) {
