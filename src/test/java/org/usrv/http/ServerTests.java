@@ -324,6 +324,34 @@ class ServerTests {
         }
     }
 
+    @Test
+    @DisplayName("Server should respond with headers for HEAD requests")
+    void serverRespondsWithHeadersForFile() throws Exception {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "newfile.txt"), "New content");
+
+        try (Socket socket = new Socket("localhost", 80);
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+            // Send HEAD request
+            out.println("HEAD /newfile.txt HTTP/1.1");
+            out.println("Host: localhost");
+            out.println("");
+
+            String statusLine = in.readLine();
+            assertNotNull(statusLine, "Status line should not be null");
+            assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+
+            String header;
+            while ((header = in.readLine()) != null && !header.isEmpty()) {
+                // Go through headers, but don't check them here
+                System.out.println(header);
+            }
+
+            // Check if body is returned
+            assertEquals(0, socket.getInputStream().available(), "HEAD response should not contain a body");
+        }
+    }
 
     @AfterAll
     void cleanup() throws Exception {

@@ -97,6 +97,8 @@ public class Server {
                 logger.debug("Resolve file path");
                 filePath = pathResolver.resolveRequest(request);
 
+                boolean isHeadMethod = request.method().equals("HEAD");
+
                 logger.debug("Check cache");
                 if (cache.containsKey(filePath)) {
                     response = cache.get(filePath);
@@ -109,10 +111,13 @@ public class Server {
                         logger.debug("Create response");
                         response = new Response(200);
                         response.setHeader("Content-Type", file.getMimeType());
-                        response.setBody(body);
                         response.setHeader("Connection", "close");
                         logger.debug("Added headers");
-                        cache.put(filePath, response);
+
+                        if(!isHeadMethod) {
+                            response.setBody(body);
+                            cache.put(filePath, response);
+                        }
                     } catch (FileNotFoundException e) {
                         response = new Response(404);
                     }
