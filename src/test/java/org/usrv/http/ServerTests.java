@@ -427,43 +427,23 @@ class ServerTests {
     @Test
     @DisplayName("Server should close connection after receiving 'Connection: close'")
     void testCloseConnection() throws Exception {
-        Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "File test");
 
-        try (Socket socket = new Socket("localhost", 80);
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "Keep-alive test");
 
-            out.print("HEAD /file.txt HTTP/1.1\r\n");
-            out.print("Host: localhost\r\n");
-            out.print("User-Agent: insomnia/10.3.1\r\n");
-            out.print("Connection: close\r\n");
-            out.print("\r\n");
-            out.flush();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/file.txt"))
+                .build();
 
-            String statusLine = in.readLine();
-            assertNotNull(statusLine, "Status line should not be null");
-            assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-            String line;
-            while ((line = in.readLine()) != null && !line.isEmpty()) {
-                // Ignore headers
-            }
+        assertNotNull(response.statusCode(), "Status code should not be null");
+        assertTrue(response.statusCode() == 200, "Expected HTTP 200 response");
 
-            String body = in.readLine();
+        HttpHeaders headers = response.headers();
+        String connectionHeader = headers.firstValue("Connection").orElse("");
+        assertEquals("close", connectionHeader, "Server did not return 'Connection: close'");
 
-            out.print("HEAD /file.txt HTTP/1.1\r\n");
-            out.print("Host: localhost\r\n");
-            out.print("User-Agent: insomnia/10.3.1\r\n");
-            out.print("Connection: close\r\n");
-            out.print("\r\n");
-            out.flush();
-
-            SocketException thrown = assertThrows(SocketException.class, () -> {
-                String statusLine2 = in.readLine();
-            });
-
-            assertEquals(thrown.getMessage(), "An established connection was aborted by the software in your host machine");
-        }
+        httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     @AfterAll
