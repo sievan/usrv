@@ -108,13 +108,13 @@ class ResponseTests {
     void testTextBinaryDataHandling() throws Exception {
         Response response = new Response(200);
         response.setHeader("Content-Type", "text/html");
-        Path imagePath = Paths.get("src", "test", "resources", "testPage.html");
+        Path textFilePath = Paths.get("src", "test", "resources", "testPage.html");
 
-        byte[] imageData = Files.readAllBytes(imagePath);
-        response.setBody(imageData);
+        byte[] textFileData = Files.readAllBytes(textFilePath);
+        response.setBody(textFileData);
 
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] expectedHash = digest.digest(imageData);
+        byte[] expectedHash = digest.digest(textFileData);
         byte[] responseHash = digest.digest(response.getBody());
 
         // Test that binary data is preserved exactly
