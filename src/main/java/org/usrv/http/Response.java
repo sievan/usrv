@@ -11,8 +11,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Getter
 public class Response {
-    private String responseText;
     private static final Map<Integer, String> statuses = Map.of(
             200, "OK",
             400, "Bad Request",
@@ -24,16 +24,13 @@ public class Response {
             Locale.ENGLISH
     );
 
-    @Getter
     Map<String, String> headers = new HashMap<>();
 
-    @Getter
     @Setter
     private int StatusCode = 200;
 
-    @Getter
     @Setter
-    private String body;
+    private byte[] body;
 
     private void initializeHeaders() {
         headers.put("Server", "usrv");
@@ -48,11 +45,11 @@ public class Response {
         initializeHeaders();
     }
 
-    public String toString() {
+    public String getFullResponseHeaders() {
         String protocolAndStatus = String.format("HTTP/1.1 %s %s", this.getStatusCode(), statuses.get(this.getStatusCode()));
         String headersString = headers.keySet().stream().map(key -> String.format("%s: %s", key, headers.get(key))).collect(Collectors.joining("\n"));
 
-        return String.format("%s\n%s\n\n%s", protocolAndStatus, headersString, this.getBody());
+        return String.format("%s\n%s\n\n", protocolAndStatus, headersString);
     }
 
     public void setHeader(String headerName, String value) {

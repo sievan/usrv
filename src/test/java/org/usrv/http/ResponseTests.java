@@ -5,6 +5,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.mockito.MockedStatic;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -19,31 +23,19 @@ import static org.mockito.Mockito.mockStatic;
 class ResponseTests {
 
     @Test
-    @DisplayName("A 200 response can be created with default values inferred")
-    void testBasicHttpResponse() {
-        Response response = new Response(200);
-        response.setBody("<html>Hello</html>");
-
-        String responseText = response.toString();
-
-        assertTrue(responseText.contains("HTTP/1.1 200 OK"));
-        assertTrue(responseText.contains("<html>Hello</html>"));
-    }
-
-    @Test
     @DisplayName("Responses for all relevant status codes can be created with default values inferred")
     void testStatuses() {
-        Response ok = new Response(200);
-        assertThat(ok.toString(), containsString("HTTP/1.1 200 OK"));
+        String ok = new Response(200).getFullResponseHeaders();
+        assertThat(ok, containsString("HTTP/1.1 200 OK"));
 
-        Response badRequest = new Response(400);
-        assertThat(badRequest.toString(), containsString("HTTP/1.1 400 Bad Request"));
+        String badRequest = new Response(400).getFullResponseHeaders();
+        assertThat(badRequest, containsString("HTTP/1.1 400 Bad Request"));
 
-        Response notFound = new Response(404);
-        assertThat(notFound.toString(), containsString("HTTP/1.1 404 Not Found"));
+        String notFound = new Response(404).getFullResponseHeaders();
+        assertThat(notFound, containsString("HTTP/1.1 404 Not Found"));
 
-        Response serverError = new Response(500);
-        assertThat(serverError.toString(), containsString("HTTP/1.1 500 Internal Server Error"));
+        String serverError = new Response(500).getFullResponseHeaders();
+        assertThat(serverError, containsString("HTTP/1.1 500 Internal Server Error"));
     }
 
     @Test
@@ -62,7 +54,6 @@ class ResponseTests {
 
         try (MockedStatic<ZonedDateTime> mockedStatic = mockStatic(ZonedDateTime.class)) {
             mockedStatic.when(() -> ZonedDateTime.now(ZoneOffset.UTC)).thenReturn(dateTime);
-            ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
 
             response = new Response(200);
             assertEquals(expectedDateTime, response.getHeaders().get("Date"));
@@ -82,12 +73,54 @@ class ResponseTests {
 
         response.setHeader("Content-Type", "text/plain");
         assertEquals("text/plain", response.getHeaders().get("Content-Type"));
-        assertThat(response.toString(), containsString("Content-Type: text/plain"));
+        assertThat(response.getFullResponseHeaders(), containsString("Content-Type: text/plain"));
 
         response.setHeader("X-Some-Header", "a-value");
         assertEquals("a-value", response.getHeaders().get("X-Some-Header"));
-        assertThat(response.toString(), containsString("X-Some-Header: a-value"));
+        assertThat(response.getFullResponseHeaders(), containsString("X-Some-Header: a-value"));
 
         assertEquals(4, response.getHeaders().size());
+    }
+
+    @Test
+    @DisplayName("Binary data from an image is correctly handled in response body")
+    void testImageBinaryDataHandling() throws Exception {
+        Response response = new Response(200);
+        response.setHeader("Content-Type", "image/jpeg");
+        Path imagePath = Paths.get("src", "test", "resources", "testImage.jpg");
+
+        byte[] imageData = Files.readAllBytes(imagePath);
+        response.setBody(imageData);
+
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] expectedHash = digest.digest(imageData);
+        byte[] responseHash = digest.digest(response.getBody());
+
+        // Test that binary data is preserved exactly
+        assertArrayEquals(expectedHash, responseHash, "Binary data should be preserved without modification");
+
+        // Test that appropriate headers are set
+        assertEquals("image/jpeg", response.getHeaders().get("Content-Type"));
+    }
+
+    @Test
+    @DisplayName("Binary data from a text file is correctly handled in response body")
+    void testTextBinaryDataHandling() throws Exception {
+        Response response = new Response(200);
+        response.setHeader("Content-Type", "text/html");
+        Path textFilePath = Paths.get("src", "test", "resources", "testPage.html");
+
+        byte[] textFileData = Files.readAllBytes(textFilePath);
+        response.setBody(textFileData);
+
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] expectedHash = digest.digest(textFileData);
+        byte[] responseHash = digest.digest(response.getBody());
+
+        // Test that binary data is preserved exactly
+        assertArrayEquals(expectedHash, responseHash, "Binary data should be preserved without modification");
+
+        // Test that appropriate headers are set
+        assertEquals("text/html", response.getHeaders().get("Content-Type"));
     }
 }

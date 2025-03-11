@@ -12,7 +12,11 @@ import org.usrv.file.PathResolver;
 import org.usrv.file.StaticFile;
 import org.usrv.exceptions.RequestParsingException;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
@@ -107,25 +111,28 @@ public class Server {
                     logger.debug("Check cache");
                     if (cache.containsKey(filePath)) {
                         response = cache.get(filePath);
-                        response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
                     } else {
                         try {
                             logger.debug("Open file");
                             StaticFile file = new StaticFile(filePath);
                             logger.debug("Get file contents");
-                            String body = file.getFileContents();
+        
+                            String bodyString = file.getFileContents();
+                            byte[] body = bodyString.getBytes();
+
                             logger.debug("Create response");
                             response = new Response(200);
                             response.setHeader("Content-Type", file.getMimeType());
+                            response.setHeader("Content-Length", String.valueOf(body.length));
                             response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
 
                             if (!isHeadMethod) {
                                 response.setBody(body);
+                                logger.debug("Added body");
                                 cache.put(filePath, response);
                             }
-                        } catch (FileNotFoundException e) {
-                            response = new Response(404);
-                        }
+                    } catch (FileNotFoundException e) {
+                        response = new Response(404);
                     }
                 } catch (RequestParsingException | InvalidRequestException e) {
                     logger.warn("Error processing request: {}", e.getMessage());
@@ -136,7 +143,8 @@ public class Server {
                     break;
                 }
 
-                out.println(response);
+                out.print(response.getFullResponseHeaders());
+                out.writeBytes(response.getBody());
                 out.flush();
 
                 if (filePath == null) {
