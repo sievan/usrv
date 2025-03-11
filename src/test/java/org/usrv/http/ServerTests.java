@@ -350,7 +350,9 @@ class ServerTests {
 
             // Check if body is returned
             assertEquals(0, socket.getInputStream().available(), "HEAD response should not contain a body");
-     }
+        }
+    }
+
     @Test  
     @DisplayName("Server always returns a content-length header in response")
     void testContentLengthHeader() throws Exception {
