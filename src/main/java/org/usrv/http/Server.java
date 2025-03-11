@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.usrv.config.ServerConfig;
+import org.usrv.exceptions.InvalidRequestException;
 import org.usrv.file.PathResolver;
 import org.usrv.file.StaticFile;
 import org.usrv.exceptions.RequestParsingException;
@@ -79,7 +80,7 @@ public class Server {
         try (
                 socket;
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
         ) {
             Response response;
             Path filePath = null;
@@ -90,8 +91,13 @@ public class Server {
                 logger.debug("Parse request");
                 request = ClientRequest.parseBuffer(in);
 
+                logger.debug("Validate request");
+                request.validate();
+
                 logger.debug("Resolve file path");
                 filePath = pathResolver.resolveRequest(request);
+
+                boolean isHeadMethod = request.method().equals("HEAD");
 
                 logger.debug("Check cache");
                 if (cache.containsKey(filePath)) {
@@ -109,12 +115,16 @@ public class Server {
                         response.setHeader("Content-Length", String.valueOf(body.getBytes().length));
                         response.setHeader("Connection", "close");
                         logger.debug("Added headers");
-                        cache.put(filePath, response);
+
+                        if(!isHeadMethod) {
+                            response.setBody(body);
+                            cache.put(filePath, response);
+                        }
                     } catch (FileNotFoundException e) {
                         response = new Response(404);
                     }
                 }
-            } catch (RequestParsingException e) {
+            } catch (RequestParsingException | InvalidRequestException e) {
                 response = new Response(400);
             }
             if (!response.headers.containsKey("Content-Length")) {
