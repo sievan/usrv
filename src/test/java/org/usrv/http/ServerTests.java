@@ -174,6 +174,29 @@ class ServerTests {
     }
 
     @Test
+    @DisplayName("Server responds with a 400 status if the request is missing host for HTTP 1.1")
+    void serverRespondsWith400WhenMissingHost() throws Exception {
+        try (Socket socket = new Socket("localhost", 80);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+            out.println("GET / HTTP/1.1");
+            out.println("User-Agent: insomnia/10.3.1\n");
+            out.println("Accept: */*\n");
+            out.flush();
+
+            ArrayList<String> lines = new ArrayList<>();
+            String line;
+
+            while ((line = in.readLine()) != null && !line.isEmpty()) {
+                lines.add(line);
+            }
+
+            assertEquals("HTTP/1.1 400 Bad Request", lines.getFirst());
+        }
+    }
+
+    @Test
     @DisplayName("Server uses cached response for subsequent requests")
     void serverUsesCachedResponse() throws Exception {
         Path path = Path.of("./TEST_DIST/dist/index.html");
