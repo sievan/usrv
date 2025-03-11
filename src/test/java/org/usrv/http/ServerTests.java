@@ -315,7 +315,7 @@ class ServerTests {
                 HttpResponse.BodyHandlers.ofString());
 
         // Validate that Content-Length matches response body size
-        assertEquals(String.valueOf(response.body().length()), response.headers().firstValue("Content-Length").get());
+        assertEquals(String.valueOf(response.body().getBytes().length), response.headers().firstValue("Content-Length").get());
 
         // call API with non-existent file
         request = HttpRequest.newBuilder()
@@ -327,7 +327,7 @@ class ServerTests {
                 HttpResponse.BodyHandlers.ofString());
                 
         // again validation
-        assertEquals(String.valueOf(response.body().length()), response.headers().firstValue("Content-Length").get());
+        assertEquals(String.valueOf(response.body().getBytes().length), response.headers().firstValue("Content-Length").get());
     }
 
     @AfterAll

@@ -106,7 +106,7 @@ public class Server {
                         response = new Response(200);
                         response.setHeader("Content-Type", file.getMimeType());
                         response.setBody(body);
-                        response.setHeader("Content-Length", String.valueOf(body.length()));
+                        response.setHeader("Content-Length", String.valueOf(body.getBytes().length));
                         response.setHeader("Connection", "close");
                         logger.debug("Added headers");
                         cache.put(filePath, response);
