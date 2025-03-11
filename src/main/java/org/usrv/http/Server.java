@@ -84,7 +84,7 @@ public class Server {
         try (
             socket;
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
+            PrintStream out = new PrintStream(socket.getOutputStream(), true)
         ) {
             boolean keepAlive = true;
 
@@ -97,7 +97,6 @@ public class Server {
                 try {
                     logger.debug("Parse request");
                     request = ClientRequest.parseBuffer(in);
-
                     logger.debug("Validate request");
                     request.validate();
 
@@ -105,7 +104,6 @@ public class Server {
 
                     logger.debug("Resolve file path");
                     filePath = pathResolver.resolveRequest(request);
-
                     boolean isHeadMethod = request.method().equals("HEAD");
 
                     logger.debug("Check cache");
@@ -117,8 +115,7 @@ public class Server {
                             StaticFile file = new StaticFile(filePath);
                             logger.debug("Get file contents");
         
-                            String bodyString = file.getFileContents();
-                            byte[] body = bodyString.getBytes();
+                            byte[] body = file.getFileContents();
 
                             logger.debug("Create response");
                             response = new Response(200);
@@ -131,8 +128,9 @@ public class Server {
                                 logger.debug("Added body");
                                 cache.put(filePath, response);
                             }
-                    } catch (FileNotFoundException e) {
-                        response = new Response(404);
+                        } catch (FileNotFoundException e) {
+                            response = new Response(404);
+                        }
                     }
                 } catch (RequestParsingException | InvalidRequestException e) {
                     logger.warn("Error processing request: {}", e.getMessage());
@@ -144,7 +142,13 @@ public class Server {
                 }
 
                 out.print(response.getFullResponseHeaders());
-                out.writeBytes(response.getBody());
+                
+                if (response.getBody() != null && response.getBody().length > 0) {
+                    out.writeBytes(response.getBody());
+                } else {
+                    out.writeBytes(new byte[0]);
+                }
+
                 out.flush();
 
                 if (filePath == null) {
@@ -164,6 +168,7 @@ public class Server {
             logger.error("I/O error handling request: {}", e.getMessage(), e);
         } catch (Exception e) {
             logger.error("Uncaught exception in request handler: {}", e.getMessage(), e);
+             logger.error("Exception type: {}", e.getClass().getName());
         } finally {
             MDC.remove("requestId");
         }

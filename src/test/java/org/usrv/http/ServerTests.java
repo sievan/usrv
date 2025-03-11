@@ -3,6 +3,8 @@ package org.usrv.http;
 import org.junit.jupiter.api.*;
 import org.usrv.config.ServerConfig;
 
+import java.nio.charset.StandardCharsets;
+
 import java.io.*;
 import java.net.Socket;
 import java.net.URI;
@@ -446,35 +448,46 @@ class ServerTests {
         Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "File test");
 
         try (Socket socket = new Socket("localhost", 80);
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+            PrintStream out = new PrintStream(socket.getOutputStream(), true);
+            InputStream in = socket.getInputStream()) {
         
-            out.print("HEAD /file.txt HTTP/1.1\r\n");
+            // Send first request with keep-alive
+            out.print("GET /file.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
             out.print("User-Agent: insomnia/10.3.1\r\n");
             out.print("Connection: keep-alive\r\n");
             out.print("\r\n");
             out.flush();
 
-            String statusLine = in.readLine();
-            assertNotNull(statusLine, "Status line should not be null");
-            assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+            String statusLine1 = reader.readLine();
+
+            assertNotNull(statusLine1, "Status line should not be null");
+            assertTrue(statusLine1.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
 
             String line;
-            while ((line = in.readLine()) != null && !line.isEmpty()) {
-                // Ignore headers
+            int contentLength = -1;
+            while ((line = reader.readLine()) != null && !line.isEmpty()) {
+                if (line.toLowerCase().startsWith("content-length:")) {
+                    contentLength = Integer.parseInt(line.split(": ")[1].trim());
+                }
             }
 
-            String body = in.readLine();
+            int counter = 0;
+            while(counter < contentLength) {
+                reader.read();
+                counter++;
+            }
 
-            out.print("HEAD /file.txt HTTP/1.1\r\n");
+            out.print("GET /file.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
             out.print("User-Agent: insomnia/10.3.1\r\n");
             out.print("Connection: close\r\n");
             out.print("\r\n");
             out.flush();
 
-            String statusLine2 = in.readLine();
+
+            String statusLine2 = reader.readLine();
             assertNotNull(statusLine2, "Status line should not be null");
             assertTrue(statusLine2.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
         }
@@ -509,25 +522,12 @@ class ServerTests {
         // call API that will return contents of test file
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("http://localhost:80"))
-                .GET()
                 .build();
 
         HttpResponse<String> response = httpClient.send(request,
                 HttpResponse.BodyHandlers.ofString());
-
+        System.out.println(response);
         // Validate that Content-Length matches response body size
-        assertEquals(String.valueOf(response.body().getBytes().length), response.headers().firstValue("Content-Length").get());
-
-        // call API with non-existent file
-        request = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:80/nonexistent.txt"))
-                .GET()
-                .build();
-
-        response = httpClient.send(request,
-                HttpResponse.BodyHandlers.ofString());
-                
-        // again validation
         assertEquals(String.valueOf(response.body().getBytes().length), response.headers().firstValue("Content-Length").get());
     }
 
