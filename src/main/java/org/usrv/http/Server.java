@@ -115,11 +115,11 @@ public class Server {
                         logger.debug("Create response");
                         response = new Response(200);
                         response.setHeader("Content-Type", file.getMimeType());
-                        response.setHeader("Content-Length", String.valueOf(body.getBytes().length));
+                        response.setHeader("Content-Length", String.valueOf(body.length));
                         response.setHeader("Connection", "close");
                         logger.debug("Added headers");
 
-                        if(!isHeadMethod) {
+                        if (!isHeadMethod) {
                             response.setBody(body);
                             logger.debug("Added body");
                             cache.put(filePath, response);
