@@ -353,6 +353,35 @@ class ServerTests {
         }
     }
 
+    @Test  
+    @DisplayName("Server always returns a content-length header in response")
+    void testContentLengthHeader() throws Exception {
+
+        // call API that will return contents of test file
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80"))
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request,
+                HttpResponse.BodyHandlers.ofString());
+
+        // Validate that Content-Length matches response body size
+        assertEquals(String.valueOf(response.body().getBytes().length), response.headers().firstValue("Content-Length").get());
+
+        // call API with non-existent file
+        request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/nonexistent.txt"))
+                .GET()
+                .build();
+
+        response = httpClient.send(request,
+                HttpResponse.BodyHandlers.ofString());
+                
+        // again validation
+        assertEquals(String.valueOf(response.body().getBytes().length), response.headers().firstValue("Content-Length").get());
+    }
+
     @AfterAll
     void cleanup() throws Exception {
         // Stop server

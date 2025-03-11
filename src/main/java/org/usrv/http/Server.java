@@ -111,6 +111,7 @@ public class Server {
                         logger.debug("Create response");
                         response = new Response(200);
                         response.setHeader("Content-Type", file.getMimeType());
+                        response.setHeader("Content-Length", String.valueOf(body.getBytes().length));
                         response.setHeader("Connection", "close");
                         logger.debug("Added headers");
 
@@ -125,7 +126,9 @@ public class Server {
             } catch (RequestParsingException | InvalidRequestException e) {
                 response = new Response(400);
             }
-
+            if (!response.headers.containsKey("Content-Length")) {
+                response.setHeader("Content-Length", "0");
+            }
             out.println(response);
             out.flush();
 
