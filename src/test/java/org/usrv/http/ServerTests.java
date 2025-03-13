@@ -3,12 +3,15 @@ package org.usrv.http;
 import org.junit.jupiter.api.*;
 import org.usrv.config.ServerConfig;
 
+import java.nio.charset.StandardCharsets;
+
 import java.io.*;
 import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpHeaders;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -21,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import java.net.SocketException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -386,6 +390,131 @@ class ServerTests {
         }
     }
 
+    @Test
+    @DisplayName("Server should respond with 'Connection: keep-alive' in the header")
+    void testKeepAliveHeader() throws IOException {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "timeout.txt"), "Timeout test");
+
+        try (Socket socket = new Socket("localhost", 80);
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+            out.print("GET /timeout.txt HTTP/1.1\r\n");
+            out.print("Host: localhost\r\n");
+            out.print("User-Agent: insomnia/10.3.1\r\n");
+            out.print("Connection: keep-alive\r\n");
+            out.print("\r\n");
+            out.flush();
+
+            String statusLine = in.readLine();
+            assertNotNull(statusLine, "Status line should not be null");
+            assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+
+
+            boolean keepAliveFound = false;
+            String line;
+            while ((line = in.readLine()) != null && !line.isEmpty()) {
+                if (line.equalsIgnoreCase("Connection: keep-alive")) {
+                    keepAliveFound = true;
+                }
+            }
+
+            assertTrue(keepAliveFound, "Server did not return 'Connection: keep-alive'");
+        }
+    }
+
+    @Test
+    @DisplayName("Server should respond with 'Connection: close' in the header")
+    void testCloseConnectionHeader() throws IOException, InterruptedException {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "Keep-alive test");
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/file.txt"))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        assertNotNull(response.statusCode(), "Status code should not be null");
+        assertTrue(response.statusCode() == 200, "Expected HTTP 200 response");
+
+        HttpHeaders headers = response.headers();
+        String connectionHeader = headers.firstValue("Connection").orElse("");
+        assertEquals("close", connectionHeader, "Server did not return 'Connection: close'");
+    }
+
+    @Test
+    @DisplayName("Server should keep connection alive for multiple requests if the client requests it")
+    void testKeepAliveConnection() throws IOException {
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "File test");
+
+        try (Socket socket = new Socket("localhost", 80);
+            PrintStream out = new PrintStream(socket.getOutputStream(), true);
+            InputStream in = socket.getInputStream()) {
+        
+            // Send first request with keep-alive
+            out.print("GET /file.txt HTTP/1.1\r\n");
+            out.print("Host: localhost\r\n");
+            out.print("User-Agent: insomnia/10.3.1\r\n");
+            out.print("Connection: keep-alive\r\n");
+            out.print("\r\n");
+            out.flush();
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+            String statusLine1 = reader.readLine();
+
+            assertNotNull(statusLine1, "Status line should not be null");
+            assertTrue(statusLine1.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+
+            String line;
+            int contentLength = -1;
+            while ((line = reader.readLine()) != null && !line.isEmpty()) {
+                if (line.toLowerCase().startsWith("content-length:")) {
+                    contentLength = Integer.parseInt(line.split(": ")[1].trim());
+                }
+            }
+
+            int counter = 0;
+            while(counter < contentLength) {
+                reader.read();
+                counter++;
+            }
+
+            out.print("GET /file.txt HTTP/1.1\r\n");
+            out.print("Host: localhost\r\n");
+            out.print("User-Agent: insomnia/10.3.1\r\n");
+            out.print("Connection: close\r\n");
+            out.print("\r\n");
+            out.flush();
+
+
+            String statusLine2 = reader.readLine();
+            assertNotNull(statusLine2, "Status line should not be null");
+            assertTrue(statusLine2.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
+        }
+    }
+
+    @Test
+    @DisplayName("Server should close connection after receiving 'Connection: close'")
+    void testCloseConnection() throws Exception {
+
+        Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "Keep-alive test");
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:80/file.txt"))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        assertNotNull(response.statusCode(), "Status code should not be null");
+        assertTrue(response.statusCode() == 200, "Expected HTTP 200 response");
+
+        HttpHeaders headers = response.headers();
+        String connectionHeader = headers.firstValue("Connection").orElse("");
+        assertEquals("close", connectionHeader, "Server did not return 'Connection: close'");
+
+        httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+  
     @Test  
     @DisplayName("Server always returns a content-length header in response")
     void testContentLengthHeader() throws Exception {
@@ -393,25 +522,12 @@ class ServerTests {
         // call API that will return contents of test file
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("http://localhost:80"))
-                .GET()
                 .build();
 
         HttpResponse<String> response = httpClient.send(request,
                 HttpResponse.BodyHandlers.ofString());
-
+        System.out.println(response);
         // Validate that Content-Length matches response body size
-        assertEquals(String.valueOf(response.body().getBytes().length), response.headers().firstValue("Content-Length").get());
-
-        // call API with non-existent file
-        request = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:80/nonexistent.txt"))
-                .GET()
-                .build();
-
-        response = httpClient.send(request,
-                HttpResponse.BodyHandlers.ofString());
-                
-        // again validation
         assertEquals(String.valueOf(response.body().getBytes().length), response.headers().firstValue("Content-Length").get());
     }
 

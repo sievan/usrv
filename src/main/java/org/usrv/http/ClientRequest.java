@@ -80,6 +80,11 @@ public record ClientRequest(String method, String path, String protocol, Map<Str
         }
     }
 
+    public boolean isKeepAlive() {
+        String connectionHeader = headers.get("Connection");
+        return connectionHeader != null && connectionHeader.equalsIgnoreCase("keep-alive");
+    }
+
     public void validate() {
         if (!supportedMethods.contains(this.method)) {
             throw new InvalidRequestException("Unsupported method: " + this.method);
