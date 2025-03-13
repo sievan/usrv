@@ -1,0 +1,4 @@
+http://localhost:80/
+http://localhost:80/assets/index-FZLPApSI.js
+http://localhost:80/assets/index-C-E0oYUp.css
+http://localhost:80/assets/demo_image.webp
