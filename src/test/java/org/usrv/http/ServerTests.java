@@ -539,9 +539,7 @@ class ServerTests {
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-        //noinspection ObviousNullCheck
-        assertNotNull(response.statusCode(), "Status code should not be null");
+        
         assertEquals(200, response.statusCode(), "Expected HTTP 200 response");
 
         HttpHeaders headers = response.headers();
