@@ -82,66 +82,85 @@ public class Server {
         MDC.put("requestId", requestId);
 
         try (
-                socket;
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintStream out = new PrintStream(socket.getOutputStream(), true)
+            socket;
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            PrintStream out = new PrintStream(socket.getOutputStream(), true)
         ) {
-            Response response;
-            Path filePath = null;
-            ClientRequest request;
-            PathResolver pathResolver = new PathResolver(serverConfig);
+            boolean keepAlive = true;
 
-            try {
-                logger.debug("Parse request");
-                request = ClientRequest.parseBuffer(in);
+            while (keepAlive) {
+                Response response;
+                Path filePath = null;
+                ClientRequest request;
+                PathResolver pathResolver = new PathResolver(serverConfig);
 
-                logger.debug("Validate request");
-                request.validate();
+                try {
+                    logger.debug("Parse request");
+                    request = ClientRequest.parseBuffer(in);
+                    logger.debug("Validate request");
+                    request.validate();
 
-                logger.debug("Resolve file path");
-                filePath = pathResolver.resolveRequest(request);
+                    keepAlive = request.isKeepAlive();
 
-                boolean isHeadMethod = request.method().equals("HEAD");
+                    logger.debug("Resolve file path");
+                    filePath = pathResolver.resolveRequest(request);
+                    boolean isHeadMethod = request.method().equals("HEAD");
 
-                logger.debug("Check cache");
-                if (cache.containsKey(filePath)) {
-                    response = cache.get(filePath);
-                } else {
-                    try {
-                        logger.debug("Open file");
-                        StaticFile file = new StaticFile(filePath);
-                        logger.debug("Get file contents");
-                        byte[] body = file.getFileContents();
-                        logger.debug("Create response");
-                        response = new Response(200);
-                        response.setHeader("Content-Type", file.getMimeType());
-                        response.setHeader("Content-Length", String.valueOf(body.length));
-                        response.setHeader("Connection", "close");
-                        logger.debug("Added headers");
+                    logger.debug("Check cache");
+                    if (cache.containsKey(filePath)) {
+                        response = cache.get(filePath);
+                    } else {
+                        try {
+                            logger.debug("Open file");
+                            StaticFile file = new StaticFile(filePath);
+                            logger.debug("Get file contents");
+        
+                            byte[] body = file.getFileContents();
 
-                        if (!isHeadMethod) {
-                            response.setBody(body);
-                            logger.debug("Added body");
-                            cache.put(filePath, response);
+                            logger.debug("Create response");
+                            response = new Response(200);
+                            response.setHeader("Content-Type", file.getMimeType());
+                            response.setHeader("Content-Length", String.valueOf(body.length));
+                            response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
+
+                            if (!isHeadMethod) {
+                                response.setBody(body);
+                                logger.debug("Added body");
+                                cache.put(filePath, response);
+                            }
+                        } catch (FileNotFoundException e) {
+                            response = new Response(404);
                         }
-                    } catch (FileNotFoundException e) {
-                        response = new Response(404);
                     }
+                } catch (RequestParsingException | InvalidRequestException e) {
+                    logger.warn("Error processing request: {}", e.getMessage());
+                    response = new Response(400);
+                    keepAlive = false;
+                } catch (java.net.SocketTimeoutException e) {
+                    logger.warn("Socket timeout occurred, closing connection.");
+                    break;
                 }
-            } catch (RequestParsingException | InvalidRequestException e) {
-                response = new Response(400);
-            }
-            if (!response.headers.containsKey("Content-Length")) {
-                response.setHeader("Content-Length", "0");
-            }
-            out.print(response.getFullResponseHeaders());
-            out.writeBytes(response.getBody());
-            out.flush();
 
-            if (filePath == null) {
-                logger.info("Sent {} response", response.getStatusCode());
-            } else {
-                logger.info("Sent {} response for file {}", response.getStatusCode(), filePath);
+                out.print(response.getFullResponseHeaders());
+                
+                if (response.getBody() != null && response.getBody().length > 0) {
+                    out.writeBytes(response.getBody());
+                } else {
+                    out.writeBytes(new byte[0]);
+                }
+
+                out.flush();
+
+                if (filePath == null) {
+                    logger.info("Sent {} response", response.getStatusCode());
+                } else {
+                    logger.info("Sent {} response for file {}", response.getStatusCode(), filePath);
+                }
+
+                if (!keepAlive) {
+                    logger.debug("Closing connection as per request.");
+                    break;
+                }
             }
         } catch (java.net.SocketTimeoutException e) {
             logger.warn("Socket timeout occurred while processing request: {}", e.getMessage());
@@ -149,6 +168,7 @@ public class Server {
             logger.error("I/O error handling request: {}", e.getMessage(), e);
         } catch (Exception e) {
             logger.error("Uncaught exception in request handler: {}", e.getMessage(), e);
+             logger.error("Exception type: {}", e.getClass().getName());
         } finally {
             MDC.remove("requestId");
         }
