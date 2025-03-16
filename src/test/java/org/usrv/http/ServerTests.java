@@ -55,6 +55,7 @@ class ServerTests {
         Files.writeString(Path.of(defaultDistDirectory.toString(), "index.html"), TEST_CONTENT);
 
         // Initialize HTTP client
+        System.setProperty("jdk.httpclient.allowRestrictedHeaders", "Connection");
         httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
@@ -265,6 +266,41 @@ class ServerTests {
     }
 
     @Test
+    @DisplayName("Server should not cache the keep alive header")
+    void serverDoesntCacheKeepAlive() throws Exception {
+        Path path = Path.of("./TEST_DIST/dist/index.html");
+
+        try {
+            // Make first request to populate cache
+            HttpRequest firstRequest = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:80"))
+                    .header("Connection", "keep-alive")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(firstRequest, HttpResponse.BodyHandlers.ofString());
+
+            String connectionHeader = response.headers().map().get("Connection").getFirst();
+            assertEquals("keep-alive", connectionHeader);
+
+            // Make second request - should not get cached header
+            HttpRequest secondRequest = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:80"))
+                    .header("Connection", "close")
+                    .GET()
+                    .build();
+
+            response = httpClient.send(secondRequest,
+                    HttpResponse.BodyHandlers.ofString());
+
+            connectionHeader = response.headers().map().get("Connection").getFirst();
+            assertEquals("close", connectionHeader);
+        } finally {
+            Files.writeString(path, TEST_CONTENT);
+        }
+    }
+
+    @Test
     @DisplayName("Server should respond with the requested file and contents")
     void serverRespondsWithAnyFile() throws Exception {
         Files.writeString(Path.of(defaultDistDirectory.toString(), "newfile.txt"), "New content");
@@ -408,9 +444,7 @@ class ServerTests {
             out.flush();
 
             String statusLine = in.readLine();
-            assertNotNull(statusLine, "Status line should not be null");
             assertTrue(statusLine.startsWith("HTTP/1.1 200"), "Expected HTTP 200 response");
-
 
             boolean keepAliveFound = false;
             String line;
@@ -435,9 +469,6 @@ class ServerTests {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-
-        //noinspection ObviousNullCheck
-        assertNotNull(response.statusCode(), "Status code should not be null");
         assertEquals(200, response.statusCode(), "Expected HTTP 200 response");
 
         HttpHeaders headers = response.headers();

@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class RequestHandler {
 
-    private final static Logger logger = LoggerFactory.getLogger(RequestHandler.class);
+    private static final Logger logger = LoggerFactory.getLogger(RequestHandler.class);
 
     private static final Map<Path, Response> cache = new ConcurrentHashMap<>();
 
@@ -77,22 +77,22 @@ public class RequestHandler {
                         response = cache.get(filePath);
                     } else {
                         try {
+                            logger.debug("Cache miss. Generating a response.");
                             response = generateFileResponse(filePath, isHeadMethod);
                         } catch (FileNotFoundException e) {
                             response = new Response(404);
                         }
                     }
-
-                    response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
                 } catch (RequestParsingException | InvalidRequestException e) {
                     logger.warn("Error processing request: {}", e.getMessage());
                     response = new Response(400);
-                    response.setHeader("Connection", "close");
                     keepAlive = false;
                 } catch (java.net.SocketTimeoutException e) {
                     logger.warn("Socket timeout occurred, closing connection.");
                     break;
                 }
+
+                response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
 
                 sendResponse(out, response);
 
@@ -103,7 +103,7 @@ public class RequestHandler {
                 }
 
                 if (!keepAlive) {
-                    logger.debug("Closing connection as per request.");
+                    logger.debug("Closing connection");
                     break;
                 }
             }
