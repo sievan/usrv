@@ -3,8 +3,6 @@ package org.usrv.http;
 import org.junit.jupiter.api.*;
 import org.usrv.config.ServerConfig;
 
-import java.nio.charset.StandardCharsets;
-
 import java.io.*;
 import java.net.Socket;
 import java.net.URI;
@@ -24,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import java.net.SocketException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -367,8 +364,8 @@ class ServerTests {
         Files.writeString(Path.of(defaultDistDirectory.toString(), "newfile.txt"), "New content");
 
         try (Socket socket = new Socket("localhost", 80);
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
             // Send HEAD request
             out.println("HEAD /newfile.txt HTTP/1.1");
@@ -396,8 +393,8 @@ class ServerTests {
         Files.writeString(Path.of(defaultDistDirectory.toString(), "timeout.txt"), "Timeout test");
 
         try (Socket socket = new Socket("localhost", 80);
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
             out.print("GET /timeout.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
@@ -434,8 +431,10 @@ class ServerTests {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
+
+        //noinspection ObviousNullCheck
         assertNotNull(response.statusCode(), "Status code should not be null");
-        assertTrue(response.statusCode() == 200, "Expected HTTP 200 response");
+        assertEquals(200, response.statusCode(), "Expected HTTP 200 response");
 
         HttpHeaders headers = response.headers();
         String connectionHeader = headers.firstValue("Connection").orElse("");
@@ -448,9 +447,9 @@ class ServerTests {
         Files.writeString(Path.of(defaultDistDirectory.toString(), "file.txt"), "File test");
 
         try (Socket socket = new Socket("localhost", 80);
-            PrintStream out = new PrintStream(socket.getOutputStream(), true);
-            InputStream in = socket.getInputStream()) {
-        
+             PrintStream out = new PrintStream(socket.getOutputStream(), true);
+             InputStream in = socket.getInputStream()) {
+
             // Send first request with keep-alive
             out.print("GET /file.txt HTTP/1.1\r\n");
             out.print("Host: localhost\r\n");
@@ -474,7 +473,8 @@ class ServerTests {
             }
 
             int counter = 0;
-            while(counter < contentLength) {
+            while (counter < contentLength) {
+                //noinspection ResultOfMethodCallIgnored
                 reader.read();
                 counter++;
             }
@@ -505,8 +505,9 @@ class ServerTests {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
+        //noinspection ObviousNullCheck
         assertNotNull(response.statusCode(), "Status code should not be null");
-        assertTrue(response.statusCode() == 200, "Expected HTTP 200 response");
+        assertEquals(200, response.statusCode(), "Expected HTTP 200 response");
 
         HttpHeaders headers = response.headers();
         String connectionHeader = headers.firstValue("Connection").orElse("");
@@ -514,8 +515,8 @@ class ServerTests {
 
         httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
-  
-    @Test  
+
+    @Test
     @DisplayName("Server always returns a content-length header in response")
     void testContentLengthHeader() throws Exception {
 
@@ -528,6 +529,7 @@ class ServerTests {
                 HttpResponse.BodyHandlers.ofString());
         System.out.println(response);
         // Validate that Content-Length matches response body size
+        //noinspection OptionalGetWithoutIsPresent
         assertEquals(String.valueOf(response.body().getBytes().length), response.headers().firstValue("Content-Length").get());
     }
 
@@ -543,6 +545,7 @@ class ServerTests {
 
         // Clean up test files
         try (Stream<Path> stream = Files.walk(Path.of("./TEST_DIST"))) {
+            //noinspection ResultOfMethodCallIgnored
             stream.sorted(Comparator.reverseOrder())
                     .map(Path::toFile)
                     .forEach(File::delete);
