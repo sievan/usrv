@@ -77,27 +77,13 @@ public class RequestHandler {
                         response = cache.get(filePath);
                     } else {
                         try {
-                            logger.debug("Open file");
-                            StaticFile file = new StaticFile(filePath);
-                            logger.debug("Get file contents");
-
-                            byte[] body = file.getFileContents();
-
-                            logger.debug("Create response");
-                            response = new Response(200);
-                            response.setHeader("Content-Type", file.getMimeType());
-                            response.setHeader("Content-Length", String.valueOf(body.length));
-                            response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
-
-                            if (!isHeadMethod) {
-                                response.setBody(body);
-                                logger.debug("Added body");
-                                cache.put(filePath, response);
-                            }
+                            response = generateFileResponse(filePath, isHeadMethod);
                         } catch (FileNotFoundException e) {
                             response = new Response(404);
                         }
                     }
+
+                    response.setHeader("Connection", keepAlive ? "keep-alive" : "close");
                 } catch (RequestParsingException | InvalidRequestException e) {
                     logger.warn("Error processing request: {}", e.getMessage());
                     response = new Response(400);
@@ -122,6 +108,28 @@ public class RequestHandler {
                 }
             }
         }
+    }
+
+    private Response generateFileResponse(Path filePath, boolean isHeadMethod) throws IOException {
+        logger.debug("Open file");
+        StaticFile file = new StaticFile(filePath);
+        logger.debug("Get file contents");
+
+        byte[] body = file.getFileContents();
+
+        logger.debug("Create response");
+        Response response = new Response(200);
+        response.setHeader("Content-Type", file.getMimeType());
+        response.setHeader("Content-Length", String.valueOf(body.length));
+
+
+        if (!isHeadMethod) {
+            response.setBody(body);
+            logger.debug("Added body");
+            cache.put(filePath, response);
+        }
+
+        return response;
     }
 
     private void sendResponse(PrintStream out, Response response) {
