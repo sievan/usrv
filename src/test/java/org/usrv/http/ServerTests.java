@@ -110,7 +110,7 @@ class ServerTests {
     }
 
     @Test
-    @DisplayName("Server can respond with image")
+    @DisplayName("Server can respond with an image")
     public void testImageEndpoint() throws IOException, InterruptedException, NoSuchAlgorithmException {
         Path imagePath = Paths.get("src", "test", "resources", "testImage.jpg");
         Files.copy(imagePath, defaultDistDirectory.resolve("testImage.jpg"));
@@ -201,7 +201,8 @@ class ServerTests {
 
 
             assertEquals("HTTP/1.1 400 Bad Request", lines.getFirst());
-
+            String fullResponse = String.join("\n", lines);
+            assertThat(fullResponse, containsString("Connection: close"));
         }
     }
 
@@ -225,6 +226,9 @@ class ServerTests {
             }
 
             assertEquals("HTTP/1.1 400 Bad Request", lines.getFirst());
+
+            String fullResponse = String.join("\n", lines);
+            assertThat(fullResponse, containsString("Connection: close"));
         }
     }
 
